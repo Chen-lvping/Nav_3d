@@ -27,7 +27,8 @@ find_path(LIVOX_LIDAR_SDK_INCLUDE_DIR
   NAMES livox_lidar_api.h livox_lidar_def.h
   PATHS /usr/local/include REQUIRED)
 
-ament_auto_add_library(${PROJECT_NAME} SHARED
+set(LIVOX_COMPONENT_TARGET ${PROJECT_NAME}_component)
+ament_auto_add_library(${LIVOX_COMPONENT_TARGET} SHARED
   src/livox_ros_driver2.cpp
   src/lddc.cpp
   src/driver_node.cpp
@@ -43,19 +44,19 @@ ament_auto_add_library(${PROJECT_NAME} SHARED
   src/parse_cfg_file/parse_livox_lidar_cfg.cpp
   src/call_back/lidar_common_callback.cpp
   src/call_back/livox_lidar_callback.cpp)
-target_include_directories(${PROJECT_NAME} PUBLIC
+target_include_directories(${LIVOX_COMPONENT_TARGET} PUBLIC
   ${PCL_INCLUDE_DIRS}
   ${APR_INCLUDE_DIRS}
   ${LIVOX_LIDAR_SDK_INCLUDE_DIR}
   3rdparty src)
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(${LIVOX_COMPONENT_TARGET}
   ${LIVOX_LIDAR_SDK_LIBRARY}
   ${PCL_LIBRARIES}
   ${APR_LIBRARIES})
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(${PROJECT_NAME} "${cpp_typesupport_target}")
+target_link_libraries(${LIVOX_COMPONENT_TARGET} "${cpp_typesupport_target}")
 
-rclcpp_components_register_node(${PROJECT_NAME}
+rclcpp_components_register_node(${LIVOX_COMPONENT_TARGET}
   PLUGIN "livox_ros::DriverNode"
   EXECUTABLE ${PROJECT_NAME}_node)
 
