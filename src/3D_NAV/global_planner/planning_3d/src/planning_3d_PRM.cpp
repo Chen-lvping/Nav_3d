@@ -9,6 +9,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <nav_msgs/Path.h>
 #include <visualization_msgs/Marker.h>
+#include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <std_msgs/UInt8.h>
@@ -340,7 +341,7 @@ public:
                 vertex_mat_.col(i) = vertices_[i].pos;
             }
             vertex_kdtree_.reset(new KdTree(3, vertex_mat_));
-            vertex_kdtree_->index_->buildIndex();
+            vertex_kdtree_->index->buildIndex();
 
             // 初始化节点封禁状态（全部初始化为false）
             vertex_blocked_.resize(vertices_.size(), false);
@@ -529,15 +530,15 @@ private:
         Eigen::Matrix3Xd mat(3,vertices_.size());
         for(size_t i=0;i<vertices_.size();++i) mat.col(i)=vertices_[i].pos;
         KdTree kdtree(3,mat);
-        kdtree.index_->buildIndex();
+        kdtree.index->buildIndex();
 
         const double rad=step_size_*1.0;          // 距离上限
-        nanoflann::SearchParameters params;
+        nanoflann::SearchParams params;
         int slope_rejected = 0;  // 统计被拒绝的边数
         int clearance_rejected = 0;  // 统计因clearance被拒绝的边数
         for(size_t i=0;i<vertices_.size();++i){
-            std::vector<nanoflann::ResultItem<long int,double>> ret;
-            kdtree.index_->radiusSearch(mat.col(i).data(),rad,ret,params);
+            std::vector<std::pair<long int, double>> ret;
+            kdtree.index->radiusSearch(mat.col(i).data(), rad, ret, params);
             std::vector<std::pair<double,int>> tmp;
             for(auto&r:ret) if(r.first!=static_cast<long>(i))
                 tmp.emplace_back(r.second,static_cast<int>(r.first));
@@ -919,7 +920,7 @@ private:
 
         // 对每个障碍点，查找附近的PRM节点并封禁
         int blocked_count = 0;
-        nanoflann::SearchParameters params;
+        nanoflann::SearchParams params;
         const double search_radius_sq = obstacle_block_radius_ * obstacle_block_radius_;
 
         for (size_t i = 0; i < num_obstacles; ++i) {
@@ -939,8 +940,8 @@ private:
                                   static_cast<double>(z)};
 
             // 在obstacle_block_radius_半径内查找节点
-            std::vector<nanoflann::ResultItem<long int, double>> ret;
-            vertex_kdtree_->index_->radiusSearch(query_pt, search_radius_sq, ret, params);
+            std::vector<std::pair<long int, double>> ret;
+            vertex_kdtree_->index->radiusSearch(query_pt, search_radius_sq, ret, params);
 
             // 封禁命中的节点
             for (const auto& item : ret) {
