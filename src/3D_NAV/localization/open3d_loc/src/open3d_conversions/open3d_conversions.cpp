@@ -13,8 +13,6 @@
 // limitations under the License.
 
 #include "open3d_conversions/open3d_conversions.h"
-#include "open3d_conversions/RosConversions.h"
-#include "open3d_conversions/DpgtConversions.h"
 
 namespace open3d_conversions
 {
