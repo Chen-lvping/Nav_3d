@@ -1,5 +1,5 @@
 ARG ROS_DISTRO=humble
-FROM ros:${ROS_DISTRO}-ros-base
+FROM ros:${ROS_DISTRO}-ros-base AS nav3d-deps
 
 ARG ROS_DISTRO
 ARG CASADI_VERSION=3.6.7
@@ -34,6 +34,8 @@ RUN git clone --depth 1 https://github.com/Livox-SDK/Livox-SDK2.git /tmp/livox-s
     cmake --build /tmp/livox-sdk2/build --parallel ${BUILD_JOBS} && \
     cmake --install /tmp/livox-sdk2/build && rm -rf /tmp/livox-sdk2 && ldconfig
 
+FROM nav3d-deps AS nav3d-runtime
+ARG ROS_DISTRO
 WORKDIR ${NAV3D_WS}
 COPY src/3D_NAV src
 RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
