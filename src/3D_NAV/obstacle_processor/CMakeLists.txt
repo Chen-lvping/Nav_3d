@@ -47,5 +47,5 @@ ament_target_dependencies(obstacle_processor_node
 
 install(TARGETS obstacle_processor_node DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include)
-install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 ament_package()
