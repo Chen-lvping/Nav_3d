@@ -6,6 +6,7 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
 
 
@@ -34,8 +35,10 @@ def generate_launch_description():
                 "common/lid_topic": lidar_topic,
                 "common/imu_topic": imu_topic,
                 "common/time_sync_en": False,
-                "preprocess/lidar_type": PythonExpression(["1 if '", sensor, "' == 'livox' else 5"]),
-                "preprocess/scan_line": PythonExpression(["4 if '", sensor, "' == 'livox' else 96"]),
+                "preprocess/lidar_type": ParameterValue(
+                    PythonExpression(["1 if '", sensor, "' == 'livox' else 5"]), value_type=int),
+                "preprocess/scan_line": ParameterValue(
+                    PythonExpression(["4 if '", sensor, "' == 'livox' else 96"]), value_type=int),
                 "preprocess/scan_rate": 10,
                 "preprocess/timestamp_unit": 2,
                 "preprocess/blind": 0.2,
@@ -46,7 +49,7 @@ def generate_launch_description():
                 "publish/scan_publish_en": True,
                 "publish/dense_publish_en": True,
                 "publish/scan_bodyframe_pub_en": True,
-                "pcd_save/pcd_save_en": save_map,
+                "pcd_save/pcd_save_en": ParameterValue(save_map, value_type=bool),
                 "pcd_save/output_dir": os.path.join(data_root, "point_cloud"),
             }]),
     ])

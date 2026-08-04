@@ -21,7 +21,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   $<INSTALL_INTERFACE:include>
   ${PCL_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} ${PCL_LIBRARIES} Eigen3::Eigen)
-target_compile_definitions(${PROJECT_NAME} PUBLIC ${PCL_DEFINITIONS})
+add_definitions(${PCL_DEFINITIONS})
 
 add_executable(map_process_node src/main.cpp)
 target_link_libraries(map_process_node ${PROJECT_NAME})

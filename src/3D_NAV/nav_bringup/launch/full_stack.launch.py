@@ -8,7 +8,9 @@ import os
 def generate_launch_description():
     launch_dir = os.path.join(get_package_share_directory("nav_bringup"), "launch")
     return LaunchDescription([
-        IncludeLaunchDescription(PythonLaunchDescriptionSource(os.path.join(launch_dir, "mapping.launch.py"))),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(launch_dir, "mapping.launch.py")),
+            launch_arguments={"save_map": "false"}.items()),
         IncludeLaunchDescription(PythonLaunchDescriptionSource(os.path.join(launch_dir, "localization.launch.py"))),
         IncludeLaunchDescription(PythonLaunchDescriptionSource(os.path.join(launch_dir, "navigation.launch.py"))),
     ])

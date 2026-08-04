@@ -5,6 +5,7 @@ from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -38,7 +39,8 @@ def generate_launch_description():
              parameters=[{"map_frame": "map", "base_frame": "body"}]),
         Node(package="nmpc_planner", executable="nmpc_controller_node", output="screen",
              parameters=[{"map_frame": "map", "base_frame": "body",
-                          "start_in_auto": LaunchConfiguration("start_in_auto")}]),
+                          "start_in_auto": ParameterValue(
+                              LaunchConfiguration("start_in_auto"), value_type=bool)}]),
         Node(package="go2_base_controller", executable="go2_base_controller", output="screen",
              condition=IfCondition(use_go2)),
     ])

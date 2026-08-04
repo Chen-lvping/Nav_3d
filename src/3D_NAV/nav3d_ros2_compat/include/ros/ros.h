@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <functional>
@@ -109,7 +110,7 @@ public:
   int64_t toNSec() const {return nanoseconds_;}
   operator builtin_interfaces::msg::Time() const
   {
-    return rclcpp::Time(nanoseconds_).to_msg();
+    return rclcpp::Time(nanoseconds_);
   }
   rclcpp::Time rcl_time() const {return rclcpp::Time(nanoseconds_);}
 private:
@@ -209,18 +210,20 @@ public:
   template<typename T>
   bool getParam(const std::string & name, T & output)
   {
-    if (!node_->has_parameter(name)) {return false;}
     if constexpr (std::is_same_v<T, float>) {
+      if (!node_->has_parameter(name)) {node_->declare_parameter<double>(name, output);}
       double value{};
       if (!node_->get_parameter(name, value)) {return false;}
       output = static_cast<float>(value);
       return true;
     } else if constexpr (std::is_same_v<T, int>) {
+      if (!node_->has_parameter(name)) {node_->declare_parameter<int64_t>(name, output);}
       int64_t value{};
       if (!node_->get_parameter(name, value)) {return false;}
       output = static_cast<int>(value);
       return true;
     } else {
+      if (!node_->has_parameter(name)) {node_->declare_parameter<T>(name, output);}
       return node_->get_parameter(name, output);
     }
   }
@@ -337,7 +340,7 @@ inline void spinOnce() {rclcpp::spin_some(global_node());}
 #define ROS_WARN_STREAM(args) RCLCPP_WARN_STREAM(ros::global_node()->get_logger(), args)
 #define ROS_ERROR_STREAM(args) RCLCPP_ERROR_STREAM(ros::global_node()->get_logger(), args)
 #define ROS_FATAL_STREAM(args) RCLCPP_FATAL_STREAM(ros::global_node()->get_logger(), args)
-#define ROS_ASSERT(condition) RCLCPP_ASSERT(condition)
+#define ROS_ASSERT(condition) assert(condition)
 #define ROS_INFO_THROTTLE(period, ...) \
   RCLCPP_INFO_THROTTLE(ros::global_node()->get_logger(), ros::logging_clock(), \
     static_cast<int64_t>((period) * 1000.0), __VA_ARGS__)
