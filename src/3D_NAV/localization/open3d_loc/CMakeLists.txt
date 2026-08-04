@@ -7,7 +7,6 @@ endif()
 add_compile_options(-O3 -Wall -Wextra -Wpedantic)
 
 find_package(ament_cmake REQUIRED)
-find_package(nav3d_ros2_compat REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
@@ -28,7 +27,7 @@ target_include_directories(open3d_conversions PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 target_link_libraries(open3d_conversions Open3D::Open3D Eigen3::Eigen)
-ament_target_dependencies(open3d_conversions nav3d_ros2_compat sensor_msgs)
+ament_target_dependencies(open3d_conversions sensor_msgs)
 
 add_executable(global_localization_node src/global_localization.cpp)
 target_link_libraries(global_localization_node

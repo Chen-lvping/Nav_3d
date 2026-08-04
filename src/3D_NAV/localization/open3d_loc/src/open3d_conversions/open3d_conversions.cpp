@@ -16,7 +16,7 @@
 
 namespace open3d_conversions
 {
-void open3dToRos(const open3d::geometry::PointCloud& pointcloud, sensor_msgs::PointCloud2& ros_pc2,
+void open3dToRos(const open3d::geometry::PointCloud& pointcloud, sensor_msgs::msg::PointCloud2& ros_pc2,
                  std::string frame_id)
 {
   sensor_msgs::PointCloud2Modifier modifier(ros_pc2);
@@ -63,7 +63,7 @@ void open3dToRos(const open3d::geometry::PointCloud& pointcloud, sensor_msgs::Po
   }
 }
 
-void rosToOpen3d(const sensor_msgs::PointCloud2ConstPtr& ros_pc2, open3d::geometry::PointCloud& o3d_pc,
+void rosToOpen3d(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& ros_pc2, open3d::geometry::PointCloud& o3d_pc,
                  bool skip_colors)
 {
   sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_x(*ros_pc2, "x");
@@ -105,7 +105,7 @@ void rosToOpen3d(const sensor_msgs::PointCloud2ConstPtr& ros_pc2, open3d::geomet
     }
   }
 }
-void open3dToRos(const open3d::t::geometry::PointCloud& pointcloud, sensor_msgs::PointCloud2& ros_pc2,
+void open3dToRos(const open3d::t::geometry::PointCloud& pointcloud, sensor_msgs::msg::PointCloud2& ros_pc2,
                  std::string frame_id, int t_num_fields, ...)
 {
   sensor_msgs::PointCloud2Modifier modifier(ros_pc2);
@@ -136,17 +136,23 @@ void open3dToRos(const open3d::t::geometry::PointCloud& pointcloud, sensor_msgs:
       {
         if (data_type == "float")
         {
-          offset = addPointField(ros_pc2, field_name + "_x", 1, sensor_msgs::PointField::FLOAT32, offset);
-          offset = addPointField(ros_pc2, field_name + "_y", 1, sensor_msgs::PointField::FLOAT32, offset);
-          offset = addPointField(ros_pc2, field_name + "_z", 1, sensor_msgs::PointField::FLOAT32, offset);
-          offset += sizeOfPointField(sensor_msgs::PointField::FLOAT32);
+          offset = sensor_msgs::addPointField(
+            ros_pc2, field_name + "_x", 1, sensor_msgs::msg::PointField::FLOAT32, offset);
+          offset = sensor_msgs::addPointField(
+            ros_pc2, field_name + "_y", 1, sensor_msgs::msg::PointField::FLOAT32, offset);
+          offset = sensor_msgs::addPointField(
+            ros_pc2, field_name + "_z", 1, sensor_msgs::msg::PointField::FLOAT32, offset);
+          offset += sensor_msgs::sizeOfPointField(sensor_msgs::msg::PointField::FLOAT32);
         }
         else if (data_type == "int")
         {
-          offset = addPointField(ros_pc2, field_name + "_x", 1, sensor_msgs::PointField::INT8, offset);
-          offset = addPointField(ros_pc2, field_name + "_y", 1, sensor_msgs::PointField::INT8, offset);
-          offset = addPointField(ros_pc2, field_name + "_z", 1, sensor_msgs::PointField::INT8, offset);
-          offset += sizeOfPointField(sensor_msgs::PointField::INT8);
+          offset = sensor_msgs::addPointField(
+            ros_pc2, field_name + "_x", 1, sensor_msgs::msg::PointField::INT8, offset);
+          offset = sensor_msgs::addPointField(
+            ros_pc2, field_name + "_y", 1, sensor_msgs::msg::PointField::INT8, offset);
+          offset = sensor_msgs::addPointField(
+            ros_pc2, field_name + "_z", 1, sensor_msgs::msg::PointField::INT8, offset);
+          offset += sensor_msgs::sizeOfPointField(sensor_msgs::msg::PointField::INT8);
         }
         else
         {
@@ -227,7 +233,7 @@ void open3dToRos(const open3d::t::geometry::PointCloud& pointcloud, sensor_msgs:
   }
 }
 
-void rosToOpen3d(const sensor_msgs::PointCloud2ConstPtr& ros_pc2, open3d::t::geometry::PointCloud& o3d_tpc,
+void rosToOpen3d(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& ros_pc2, open3d::t::geometry::PointCloud& o3d_tpc,
                  bool skip_colors)
 {
   sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_x(*ros_pc2, "x");
@@ -269,8 +275,8 @@ void rosToOpen3d(const sensor_msgs::PointCloud2ConstPtr& ros_pc2, open3d::t::geo
     }
     else
     {
-      if (ros_pc2->fields[num_fields].datatype == sensor_msgs::PointField::UINT8 ||
-          ros_pc2->fields[num_fields].datatype == sensor_msgs::PointField::INT8)
+      if (ros_pc2->fields[num_fields].datatype == sensor_msgs::msg::PointField::UINT8 ||
+          ros_pc2->fields[num_fields].datatype == sensor_msgs::msg::PointField::INT8)
       {
         sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_fx(*ros_pc2, ros_pc2->fields[num_fields].name);
         sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_fy(*ros_pc2, ros_pc2->fields[num_fields].name);
@@ -285,7 +291,7 @@ void rosToOpen3d(const sensor_msgs::PointCloud2ConstPtr& ros_pc2, open3d::t::geo
           open3d::core::eigen_converter::EigenVector3dVectorToTensor(o3d_TensorList_fields, dtype_f, device_type);
         o3d_tpc.SetPointAttr(ros_pc2->fields[num_fields].name, o3d_tpc_fields);
       }
-      else if (ros_pc2->fields[num_fields].datatype == sensor_msgs::PointField::FLOAT32)
+      else if (ros_pc2->fields[num_fields].datatype == sensor_msgs::msg::PointField::FLOAT32)
       {
         sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_fx(*ros_pc2, ros_pc2->fields[num_fields].name);
         sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_fy(*ros_pc2, ros_pc2->fields[num_fields].name);
@@ -319,47 +325,3 @@ void rosToOpen3d(const sensor_msgs::PointCloud2ConstPtr& ros_pc2, open3d::t::geo
   }
 }
 }    // namespace open3d_conversions
-
-inline int addPointField(sensor_msgs::PointCloud2& cloud_msg, const std::string& name, int count, int datatype,
-                         int offset)
-
-{
-  sensor_msgs::PointField point_field;
-  point_field.name = name;
-  point_field.count = count;
-  point_field.datatype = datatype;
-  point_field.offset = offset;
-  cloud_msg.fields.push_back(point_field);
-
-  // Update the offset
-  return offset + point_field.count * sizeOfPointField(datatype);
-}
-
-inline int sizeOfPointField(int datatype)
-{
-  if ((datatype == sensor_msgs::PointField::INT8) || (datatype == sensor_msgs::PointField::UINT8))
-  {
-    return 1;
-  }
-  else if ((datatype == sensor_msgs::PointField::INT16) ||    // NOLINT
-           (datatype == sensor_msgs::PointField::UINT16))
-  {
-    return 2;
-  }
-  else if ((datatype == sensor_msgs::PointField::INT32) ||    // NOLINT
-           (datatype == sensor_msgs::PointField::UINT32) || (datatype == sensor_msgs::PointField::FLOAT32))
-  {
-    return 4;
-  }
-  else if (datatype == sensor_msgs::PointField::FLOAT64)
-  {
-    return 8;
-  }
-  else
-  {
-    std::stringstream err;
-    err << "PointField of type " << datatype << " does not exist";
-    throw std::runtime_error(err.str());
-  }
-  return -1;
-}

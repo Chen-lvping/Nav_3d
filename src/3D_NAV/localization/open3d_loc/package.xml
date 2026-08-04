@@ -6,7 +6,6 @@
   <maintainer email="2721705912@qq.com">Chen-lvping</maintainer>
   <license>BSD-3-Clause</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
-  <depend>nav3d_ros2_compat</depend>
   <depend>rclcpp</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
