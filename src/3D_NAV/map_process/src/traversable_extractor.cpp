@@ -2,6 +2,7 @@
 #include "map_process/utils.h"
 #include <iostream>
 #include <algorithm>
+#include <memory>
 #include <set>
 #include <pcl/search/kdtree.h>
 #include <pcl/common/common.h>
@@ -201,8 +202,8 @@ bool TraversableExtractor::performRegionGrowingWithSeeds(const pcl::PointCloud<p
               << " points and " << seed_points->size() << " seeds..." << std::endl;
     
     // Step 1: Estimate normals for the input cloud
-    pcl::search::Search<pcl::PointXYZI>::Ptr tree = 
-        boost::shared_ptr<pcl::search::Search<pcl::PointXYZI>>(new pcl::search::KdTree<pcl::PointXYZI>);
+    pcl::search::Search<pcl::PointXYZI>::Ptr tree =
+        std::make_shared<pcl::search::KdTree<pcl::PointXYZI>>();
     pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
     pcl::NormalEstimation<pcl::PointXYZI, pcl::Normal> normal_estimator;
     
@@ -253,8 +254,8 @@ bool TraversableExtractor::performRegionGrowingWithSeeds(const pcl::PointCloud<p
     ground_normals->is_dense = true;
     
     // Create KdTree for ground cloud
-    pcl::search::Search<pcl::PointXYZI>::Ptr ground_tree = 
-        boost::shared_ptr<pcl::search::Search<pcl::PointXYZI>>(new pcl::search::KdTree<pcl::PointXYZI>);
+    pcl::search::Search<pcl::PointXYZI>::Ptr ground_tree =
+        std::make_shared<pcl::search::KdTree<pcl::PointXYZI>>();
     ground_tree->setInputCloud(ground_cloud);
     
     // Step 3: Find seed indices in ground cloud
