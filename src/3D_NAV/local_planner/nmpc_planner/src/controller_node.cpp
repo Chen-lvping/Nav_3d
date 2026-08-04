@@ -2,6 +2,7 @@
 #include <csignal>
 #include <iostream>
 #include <cmath>
+#include <chrono>
 
 namespace nmpc_planner {
 
@@ -18,7 +19,7 @@ ControllerNode::ControllerNode()
     initializePublishersSubscribers();
     
     // 初始化TF
-    tf_buffer_ = std::make_shared<tf2_ros::Buffer>();
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(ros::global_node()->get_clock());
     tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
     
     // 初始化键盘输入
@@ -123,7 +124,7 @@ void ControllerNode::autoMode() {
     }
 }
 
-void ControllerNode::localPlanCallback(const std_msgs::Float32MultiArray::ConstPtr& msg) {
+void ControllerNode::localPlanCallback(const std_msgs::Float32MultiArray::ConstSharedPtr& msg) {
     local_plan_.clear();
 
     // 解析local_plan数据
@@ -135,7 +136,7 @@ void ControllerNode::localPlanCallback(const std_msgs::Float32MultiArray::ConstP
     }
 }
 
-void ControllerNode::navigationStateCallback(const std_msgs::UInt8::ConstPtr& msg) {
+void ControllerNode::navigationStateCallback(const std_msgs::UInt8::ConstSharedPtr& msg) {
     // Convert uint8_t to NavState enum
     if (msg->data <= static_cast<uint8_t>(NavState::ABORTED)) {
         nav_state_ = static_cast<NavState>(msg->data);
@@ -187,7 +188,7 @@ void ControllerNode::publishCurrentState() {
 bool ControllerNode::updateCurrentState() {
     try {
         geometry_msgs::TransformStamped transform = tf_buffer_->lookupTransform(
-            map_frame_, base_frame_, ros::Time(0), ros::Duration(0.1));
+            map_frame_, base_frame_, tf2::TimePointZero, std::chrono::milliseconds(100));
         
         // 更新位置
         current_state_.x = transform.transform.translation.x;

@@ -1,20 +1,13 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
   <name>map_publisher</name>
-  <version>1.0.0</version>
-  <description>A simple node to load and publish PCD map for simulation</description>
-
-  <maintainer email="arts@todo.todo">arts</maintainer>
-  <license>BSD</license>
-
-  <buildtool_depend>catkin</buildtool_depend>
-
-  <depend>roscpp</depend>
+  <version>0.1.0</version>
+  <description>Native ROS 2 static point-cloud map publisher.</description>
+  <maintainer email="user@example.com">Nav_3d maintainers</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
-  <depend>tf</depend>
-  <depend>eigen_conversions</depend>
-  <depend>open3d_loc</depend>
-
-  <export>
-  </export>
+  <depend>libopen3d-dev</depend>
+  <export><build_type>ament_cmake</build_type></export>
 </package>

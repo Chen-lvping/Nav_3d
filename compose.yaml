@@ -1,50 +1,25 @@
-name: nav3d
+name: nav3d-native
 
 services:
-  ros1:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-      args:
-        ROS_DISTRO: noetic
-    image: nav3d:noetic
-    init: true
-    environment:
-      ROS_MASTER_URI: http://ros1:11311
-      ROS_HOSTNAME: ros1
-      NAV3D_DATA_ROOT: /data
-      NAV3D_LAUNCH: ${NAV3D_LAUNCH:-}
-    volumes:
-      - ${NAV3D_DATA_ROOT:-./data}:/data
-    command:
-      - bash
-      - -lc
-      - >-
-        roscore &
-        until rostopic list >/dev/null 2>&1; do sleep 1; done;
-        roslaunch rosbridge_server rosbridge_websocket.launch port:=9090 &
-        if [[ -n "$${NAV3D_LAUNCH:-}" ]]; then eval "$${NAV3D_LAUNCH}"; else wait -n; fi
-    healthcheck:
-      test: ["CMD-SHELL", "rostopic list >/dev/null 2>&1"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-  ros2-adapter:
+  nav3d:
     build:
       context: .
       dockerfile: docker/Dockerfile.ros2
       args:
-        ROS_DISTRO: ${ROS2_DISTRO:-humble}
-    image: nav3d:${ROS2_DISTRO:-humble}-adapter
+        ROS_DISTRO: ${ROS_DISTRO:-humble}
+        BUILD_JOBS: ${BUILD_JOBS:-4}
+    image: nav3d-native:${ROS_DISTRO:-humble}
+    network_mode: host
+    ipc: host
+    privileged: true
     init: true
-    depends_on:
-      ros1:
-        condition: service_healthy
     environment:
       ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
-      ROSBRIDGE_HOST: ros1
-      ROSBRIDGE_PORT: 9090
-      NAV3D_BRIDGE_CONFIG: /config/bridge.yaml
+      RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+      NAV3D_DATA_ROOT: /data
+      DISPLAY: ${DISPLAY:-}
     volumes:
-      - ./ros2_ws/src/nav3d_ros2_adapter/config:/config:ro
+      - ${NAV3D_DATA_ROOT:-./data}:/data
+      - /dev:/dev
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    command: ${NAV3D_COMMAND:-ros2 launch nav_bringup full_stack.launch.py}

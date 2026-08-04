@@ -5,7 +5,8 @@ import statistics
 import struct
 import time
 
-import rospy
+import rclpy
+from rclpy.node import Node
 from sensor_msgs.msg import Imu, PointCloud2
 
 
@@ -29,25 +30,29 @@ def point_time_range(message):
         )[0]
         if math.isfinite(value):
             values.append(value)
-    stamp = message.header.stamp.to_sec()
+    stamp = message.header.stamp.sec + message.header.stamp.nanosec * 1e-9
     return (min(values) - stamp) * 1000.0, (max(values) - stamp) * 1000.0
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--duration", type=float, default=10.0)
-    args = parser.parse_args(rospy.myargv()[1:])
+    args, ros_args = parser.parse_known_args()
 
     imus = []
     front = []
     rear = []
     last_cloud = {}
-    rospy.init_node("m20_sensor_audit", anonymous=True)
+    rclpy.init(args=ros_args)
+    node = Node("m20_sensor_audit")
+
+    def stamp_seconds(stamp):
+        return stamp.sec + stamp.nanosec * 1e-9
 
     def imu_callback(message):
         imus.append(
             (
-                message.header.stamp.to_sec(),
+                stamp_seconds(message.header.stamp),
                 message.angular_velocity.x,
                 message.angular_velocity.y,
                 message.angular_velocity.z,
@@ -59,26 +64,26 @@ def main():
         )
 
     def cloud_callback(message, name, samples):
-        samples.append((message.header.stamp.to_sec(), len(message.data)))
+        samples.append((stamp_seconds(message.header.stamp), len(message.data)))
         last_cloud[name] = message
 
-    rospy.Subscriber("/IMU", Imu, imu_callback, queue_size=2000)
-    rospy.Subscriber(
+    node.create_subscription(Imu, "/IMU", imu_callback, 2000)
+    node.create_subscription(
+        PointCloud2,
         "/m20/lidar/front",
-        PointCloud2,
         lambda msg: cloud_callback(msg, "front", front),
-        queue_size=100,
+        100,
     )
-    rospy.Subscriber(
-        "/m20/lidar/rear",
+    node.create_subscription(
         PointCloud2,
+        "/m20/lidar/rear",
         lambda msg: cloud_callback(msg, "rear", rear),
-        queue_size=100,
+        100,
     )
 
     deadline = time.monotonic() + args.duration
-    while time.monotonic() < deadline and not rospy.is_shutdown():
-        rospy.sleep(0.01)
+    while time.monotonic() < deadline and rclpy.ok():
+        rclpy.spin_once(node, timeout_sec=0.01)
 
     if not imus or not front or not rear:
         raise RuntimeError("Missing IMU, front LiDAR, or rear LiDAR data")
@@ -132,7 +137,10 @@ def main():
             f"point_time_ms=[{minimum:.3f},{maximum:.3f}]"
         )
     print(f"imu_frame={imus[-1][7]!r}")
-    print(f"nuc_minus_sensor_clock={rospy.Time.now().to_sec() - imus[-1][0]:.3f}s")
+    now = node.get_clock().now().nanoseconds * 1e-9
+    print(f"nuc_minus_sensor_clock={now - imus[-1][0]:.3f}s")
+    node.destroy_node()
+    rclpy.shutdown()
 
 
 if __name__ == "__main__":

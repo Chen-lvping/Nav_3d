@@ -1,83 +1,59 @@
-# Deployment
+# ROS 2 原生部署
 
-## Recommended: Docker Compose
-
-Compose isolates ROS 1 Noetic and ROS 2 on their supported Ubuntu bases while
-sharing only declared topics:
+## 配置
 
 ```bash
-export NAV3D_DATA_ROOT=/absolute/path/to/nav3d_data
-export ROS2_DISTRO=humble       # humble or jazzy
-docker compose build
+cp .env.example .env
+```
+
+常用环境变量：
+
+```dotenv
+ROS_DISTRO=humble
+ROS_DOMAIN_ID=0
+RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+NAV3D_DATA_ROOT=./data
+BUILD_JOBS=4
+```
+
+Jazzy 部署只需把 `ROS_DISTRO` 改为 `jazzy` 后重建。
+
+## 构建与检查
+
+```bash
+docker compose build nav3d
+docker compose run --rm nav3d ros2 pkg list | grep -E 'fast_lio|open3d_loc|planning_3d|nmpc_planner'
+docker compose run --rm nav3d ros2 launch nav_bringup mapping.launch.py --show-args
+docker compose run --rm nav3d ros2 launch nav_bringup navigation.launch.py --show-args
+```
+
+## 运行方式
+
+```bash
+# 默认完整链路
 docker compose up
+
+# 单独建图
+docker compose run --rm nav3d ros2 launch nav_bringup mapping.launch.py sensor:=livox
+
+# 单独定位
+docker compose run --rm nav3d ros2 launch nav_bringup localization.launch.py map_path:=/data/point_cloud/scans.pcd
+
+# 单独导航
+docker compose run --rm nav3d ros2 launch nav_bringup navigation.launch.py
 ```
 
-To start the generic navigation launch in the ROS 1 service:
+## 跨平台边界
 
-```bash
-export NAV3D_LAUNCH='roslaunch nav_bringup bringup_navigation.launch pcd_path:=/data/traversable/traversable_areas.pcd'
-docker compose up
-```
+算法和 ROS 2 节点通过容器在 x86_64/ARM64 Linux 上保持一致。Windows/macOS 可用于仿真、bag 回放与开发，但真实 LiDAR UDP、Go2 DDS 和低延迟控制建议部署到 Linux 主机，因为 Docker Desktop 的虚拟网络无法等价替代 Linux host network。
 
-The same Compose file runs as Linux containers on Docker Engine, Docker Desktop
-for Windows, and Docker Desktop for macOS. `linux/amd64` and `linux/arm64` are
-supported by the generic images. Hardware drivers may require Linux-specific
-device mappings and should be added in a local Compose override.
-
-## Build individual images
-
-```bash
-docker build -f docker/Dockerfile -t nav3d:noetic .
-docker build --build-arg ROS_DISTRO=humble \
-  -f docker/Dockerfile.ros2 -t nav3d:humble-adapter .
-```
-
-Multi-architecture publication:
-
-```bash
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -f docker/Dockerfile -t your-registry/nav3d:noetic --push .
-docker buildx build --platform linux/amd64,linux/arm64 \
-  --build-arg ROS_DISTRO=humble -f docker/Dockerfile.ros2 \
-  -t your-registry/nav3d:humble-adapter --push .
-```
-
-## Native ROS 1 Noetic
-
-Ubuntu 20.04 is the supported native baseline:
-
-```bash
-sudo apt install python3-rosdep python3-catkin-tools build-essential cmake git
-rosdep install --from-paths src --ignore-src -r -y
-source scripts/nav3d_env.sh
-scripts/build_workspace.sh core
-```
-
-CasADi must provide C++ headers and libraries. Use `scripts/install_casadi.sh`
-or install CasADi 3.5.5 under `/opt/casadi`.
-
-## Native ROS 2 adapter
-
-On a supported Humble or Jazzy host:
-
-```bash
-bash scripts/build_ros2.sh
-source ros2_ws/install/setup.bash
-ros2 launch nav3d_ros2_adapter bridge.launch.py rosbridge_host:=127.0.0.1
-```
-
-## Runtime data
-
-Keep data outside the image and mount it at `/data`:
+## 数据目录
 
 ```text
-$NAV3D_DATA_ROOT/
-  point_cloud/scans.pcd
-  trace_data/mapping_trajectory.txt
-  traversable/traversable_areas.pcd
-  bags/
+data/
+├── bags/
+├── point_cloud/scans.pcd
+└── traversable/traversable_areas.pcd
 ```
 
-GUI forwarding, GPU acceleration, USB/CAN devices, real-time scheduling, and
-host DDS discovery are deliberately opt-in because their configuration differs
-by host OS and robot.
+生产环境应把 `NAV3D_DATA_ROOT` 指向持久化磁盘，并确保点云地图路径与 launch 参数一致。

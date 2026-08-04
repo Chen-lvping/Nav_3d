@@ -1,13 +1,12 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.8)
 project(obstacle_processor)
 
-add_compile_options(-std=c++14)
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+add_compile_options(-Wall -Wextra -Wpedantic)
+add_compile_definitions(PTHREAD_STACK_MIN=16384)
 
-add_definitions(-DPTHREAD_STACK_MIN=16384)
-
-# Keep release binaries portable across x86_64 and arm64 by default. Native
-# SIMD can be enabled for a known deployment CPU when maximum throughput is
-# more important than redistributing the binary.
 option(NAV3D_ENABLE_AVX2 "Compile obstacle_processor with AVX2" OFF)
 if(NAV3D_ENABLE_AVX2)
   include(CheckCXXCompilerFlag)
@@ -16,51 +15,37 @@ if(NAV3D_ENABLE_AVX2)
     message(FATAL_ERROR "NAV3D_ENABLE_AVX2=ON, but the compiler does not support -mavx2")
   endif()
   add_compile_options(-mavx2)
-  message(STATUS "AVX2 explicitly enabled")
 endif()
 
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  rospy
-  std_msgs
-  sensor_msgs
-  geometry_msgs
-  pcl_ros
-  pcl_conversions
-  tf
-)
-
-find_package(PCL 1.10 REQUIRED)
+find_package(ament_cmake REQUIRED)
+find_package(nav3d_ros2_compat REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common filters kdtree)
 find_package(Eigen3 REQUIRED)
-find_package(OpenMP REQUIRED)
+find_package(OpenMP)
 
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES obstacle_processor
-  CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs geometry_msgs pcl_ros pcl_conversions tf
-  DEPENDS PCL EIGEN3
-)
-
-include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
-  ${PCL_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIRS}
-)
-
-link_directories(${PCL_LIBRARY_DIRS})
-add_definitions(${PCL_DEFINITIONS})
-
-add_executable(obstacle_processor_node src/obstacle_processor_node.cpp src/execution_classes.cpp)
-
+add_executable(obstacle_processor_node
+  src/obstacle_processor_node.cpp
+  src/execution_classes.cpp)
+target_include_directories(obstacle_processor_node PRIVATE
+  include ${PCL_INCLUDE_DIRS})
 target_link_libraries(obstacle_processor_node
-  ${catkin_LIBRARIES}
-  ${PCL_LIBRARIES}
-  ${OpenMP_CXX_LIBRARIES}
-)
-
+  ${PCL_LIBRARIES} Eigen3::Eigen)
 if(OpenMP_CXX_FOUND)
-    target_link_libraries(obstacle_processor_node OpenMP::OpenMP_CXX)
+  target_link_libraries(obstacle_processor_node OpenMP::OpenMP_CXX)
 endif()
+ament_target_dependencies(obstacle_processor_node
+  nav3d_ros2_compat rclcpp std_msgs sensor_msgs geometry_msgs pcl_conversions
+  tf2 tf2_ros tf2_geometry_msgs)
 
-add_dependencies(obstacle_processor_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+install(TARGETS obstacle_processor_node DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY include/ DESTINATION include)
+install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME})
+ament_package()

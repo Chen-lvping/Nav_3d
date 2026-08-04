@@ -50,13 +50,13 @@ void Preprocess::set(bool feat_en, int lid_type, double bld, int pfilt_num)
   point_filter_num = pfilt_num;
 }
 
-void Preprocess::process(const livox_ros_driver2::CustomMsg::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out)
+void Preprocess::process(const livox_ros_driver2::CustomMsg::ConstSharedPtr &msg, PointCloudXYZI::Ptr &pcl_out)
 {  
   avia_handler(msg);
   *pcl_out = pl_surf;
 }
 
-void Preprocess::process(const sensor_msgs::PointCloud2::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out)
+void Preprocess::process(const sensor_msgs::PointCloud2::ConstSharedPtr &msg, PointCloudXYZI::Ptr &pcl_out)
 {
   switch (time_unit)
   {
@@ -106,7 +106,7 @@ void Preprocess::process(const sensor_msgs::PointCloud2::ConstPtr &msg, PointClo
   *pcl_out = pl_surf;
 }
 
-void Preprocess::avia_handler(const livox_ros_driver2::CustomMsg::ConstPtr &msg)
+void Preprocess::avia_handler(const livox_ros_driver2::CustomMsg::ConstSharedPtr &msg)
 {
   pl_surf.clear();
   pl_corn.clear();
@@ -203,7 +203,7 @@ void Preprocess::avia_handler(const livox_ros_driver2::CustomMsg::ConstPtr &msg)
   }
 }
 
-void Preprocess::oust64_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
+void Preprocess::oust64_handler(const sensor_msgs::PointCloud2::ConstSharedPtr &msg)
 {
   pl_surf.clear();
   pl_corn.clear();
@@ -269,7 +269,7 @@ void Preprocess::oust64_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
   }
   else
   {
-    double time_stamp = msg->header.stamp.toSec();
+    double time_stamp = rclcpp::Time(msg->header.stamp).seconds();
     // cout << "===================================" << endl;
     // printf("Pt size = %d, N_SCANS = %d\r\n", plsize, N_SCANS);
     for (int i = 0; i < pl_orig.points.size(); i++)
@@ -298,7 +298,7 @@ void Preprocess::oust64_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
   // pub_func(pl_surf, pub_corn, msg->header.stamp);
 }
 
-void Preprocess::velodyne_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
+void Preprocess::velodyne_handler(const sensor_msgs::PointCloud2::ConstSharedPtr &msg)
 {
     pl_surf.clear();
     pl_corn.clear();
@@ -472,7 +472,7 @@ void Preprocess::velodyne_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
     }
 }
 
-void Preprocess::sim_handler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
+void Preprocess::sim_handler(const sensor_msgs::PointCloud2::ConstSharedPtr &msg) {
     pl_surf.clear();
     pl_full.clear();
     pcl::PointCloud<pcl::PointXYZI> pl_orig;
@@ -497,7 +497,7 @@ void Preprocess::sim_handler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
     }
 }
 
-void Preprocess::rslidar_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
+void Preprocess::rslidar_handler(const sensor_msgs::PointCloud2::ConstSharedPtr &msg)
 {
   pl_surf.clear();
   pl_corn.clear();
@@ -523,7 +523,7 @@ void Preprocess::rslidar_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
     added_pt.y = pl_orig.points[i].y;
     added_pt.z = pl_orig.points[i].z;
     added_pt.intensity = pl_orig.points[i].intensity;
-    added_pt.curvature = std::max(0.0, pl_orig.points[i].timestamp - msg->header.stamp.toSec()) * 1000.0;
+    added_pt.curvature = std::max(0.0, pl_orig.points[i].timestamp - rclcpp::Time(msg->header.stamp).seconds()) * 1000.0;
 
     double dist = added_pt.x * added_pt.x + added_pt.y * added_pt.y + added_pt.z * added_pt.z;
     if ( dist < blind * blind || isnan(added_pt.x) || isnan(added_pt.y) || isnan(added_pt.z))
@@ -552,7 +552,7 @@ void Preprocess::rslidar_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
   }
 }
 
-void Preprocess::pandar_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
+void Preprocess::pandar_handler(const sensor_msgs::PointCloud2::ConstSharedPtr &msg)
 {
   pl_surf.clear();
   pl_corn.clear();

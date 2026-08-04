@@ -54,8 +54,7 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <tf/transform_datatypes.h>
-#include <tf/transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <geometry_msgs/Vector3.h>
 #include <livox_ros_driver2/CustomMsg.h>
 #include "preprocess.h"
@@ -106,7 +105,7 @@ vector<double>       extrinR(9, 0.0);
 vector<double>       imu2lidarMatrix(16, 0.0);
 deque<double>                     time_buffer;
 deque<PointCloudXYZI::Ptr>        lidar_buffer;
-deque<sensor_msgs::Imu::ConstPtr> imu_buffer;
+deque<sensor_msgs::Imu::ConstSharedPtr> imu_buffer;
 
 PointCloudXYZI::Ptr featsFromMap(new PointCloudXYZI());
 PointCloudXYZI::Ptr feats_undistort(new PointCloudXYZI());
@@ -279,12 +278,12 @@ void lasermap_fov_segment()
     kdtree_delete_time = omp_get_wtime() - delete_begin;
 }
 
-void standard_pcl_cbk(const sensor_msgs::PointCloud2::ConstPtr &msg) 
+void standard_pcl_cbk(const sensor_msgs::PointCloud2::ConstSharedPtr &msg) 
 {
     mtx_buffer.lock();
     scan_count ++;
     double preprocess_start_time = omp_get_wtime();
-    if (msg->header.stamp.toSec() < last_timestamp_lidar)
+    if (rclcpp::Time(msg->header.stamp).seconds() < last_timestamp_lidar)
     {
         ROS_ERROR("lidar loop back, clear buffer");
         lidar_buffer.clear();
@@ -293,8 +292,8 @@ void standard_pcl_cbk(const sensor_msgs::PointCloud2::ConstPtr &msg)
     PointCloudXYZI::Ptr  ptr(new PointCloudXYZI());
     p_pre->process(msg, ptr);
     lidar_buffer.push_back(ptr);
-    time_buffer.push_back(msg->header.stamp.toSec());
-    last_timestamp_lidar = msg->header.stamp.toSec();
+    time_buffer.push_back(rclcpp::Time(msg->header.stamp).seconds());
+    last_timestamp_lidar = rclcpp::Time(msg->header.stamp).seconds();
     s_plot11[scan_count] = omp_get_wtime() - preprocess_start_time;
     mtx_buffer.unlock();
     sig_buffer.notify_all();
@@ -302,17 +301,17 @@ void standard_pcl_cbk(const sensor_msgs::PointCloud2::ConstPtr &msg)
 
 double timediff_lidar_wrt_imu = 0.0;
 bool   timediff_set_flg = false;
-void livox_pcl_cbk(const livox_ros_driver2::CustomMsg::ConstPtr &msg) 
+void livox_pcl_cbk(const livox_ros_driver2::CustomMsg::ConstSharedPtr &msg) 
 {
     mtx_buffer.lock();
     double preprocess_start_time = omp_get_wtime();
     scan_count ++;
-    if (msg->header.stamp.toSec() < last_timestamp_lidar)
+    if (rclcpp::Time(msg->header.stamp).seconds() < last_timestamp_lidar)
     {
         ROS_ERROR("lidar loop back, clear buffer");
         lidar_buffer.clear();
     }
-    last_timestamp_lidar = msg->header.stamp.toSec();
+    last_timestamp_lidar = rclcpp::Time(msg->header.stamp).seconds();
     
     if (!time_sync_en && abs(last_timestamp_imu - last_timestamp_lidar) > 10.0 && !imu_buffer.empty() && !lidar_buffer.empty() )
     {
@@ -350,20 +349,20 @@ void vector2Matrix(const vector<double> &vec, Eigen::Matrix4d &mat)
     mat << vec[0], vec[1], vec[2], vec[3], vec[4], vec[5], vec[6], vec[7], vec[8], vec[9], vec[10], vec[11], vec[12], vec[13], vec[14], vec[15];
 }
 
-void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in) 
+void imu_cbk(const sensor_msgs::Imu::ConstSharedPtr &msg_in) 
 {
     publish_count ++;
     // cout<<"IMU got at: "<<msg_in->header.stamp.toSec()<<endl;
     sensor_msgs::Imu::Ptr msg(new sensor_msgs::Imu(*msg_in));
 
-    msg->header.stamp = ros::Time().fromSec(msg_in->header.stamp.toSec() - time_diff_lidar_to_imu);
+    msg->header.stamp = ros::Time().fromSec(rclcpp::Time(msg_in->header.stamp).seconds() - time_diff_lidar_to_imu);
     if (abs(timediff_lidar_wrt_imu) > 0.1 && time_sync_en)
     {
         msg->header.stamp = \
-        ros::Time().fromSec(timediff_lidar_wrt_imu + msg_in->header.stamp.toSec());
+        ros::Time().fromSec(timediff_lidar_wrt_imu + rclcpp::Time(msg_in->header.stamp).seconds());
     }
 
-    double timestamp = msg->header.stamp.toSec();
+    double timestamp = rclcpp::Time(msg->header.stamp).seconds();
 
     // Apply IMU to LiDAR coordinate transformation (galileo_lio method)
     Eigen::Vector4d angular_velocity_imu = {msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z, 1.0};
@@ -436,11 +435,11 @@ bool sync_packages(MeasureGroup &meas)
     }
 
     /*** push imu data, and pop from imu buffer ***/
-    double imu_time = imu_buffer.front()->header.stamp.toSec();
+    double imu_time = rclcpp::Time(imu_buffer.front()->header.stamp).seconds();
     meas.imu.clear();
     while ((!imu_buffer.empty()) && (imu_time < lidar_end_time))
     {
-        imu_time = imu_buffer.front()->header.stamp.toSec();
+        imu_time = rclcpp::Time(imu_buffer.front()->header.stamp).seconds();
         if(imu_time > lidar_end_time) break;
         meas.imu.push_back(imu_buffer.front());
         imu_buffer.pop_front();
@@ -636,18 +635,16 @@ void publish_odometry(const ros::Publisher & pubOdomAftMapped)
         odomAftMapped.pose.covariance[i*6 + 5] = P(k, 2);
     }
 
-    static tf::TransformBroadcaster br;
-    tf::Transform                   transform;
-    tf::Quaternion                  q;
-    transform.setOrigin(tf::Vector3(odomAftMapped.pose.pose.position.x, \
-                                    odomAftMapped.pose.pose.position.y, \
-                                    odomAftMapped.pose.pose.position.z));
-    q.setW(odomAftMapped.pose.pose.orientation.w);
-    q.setX(odomAftMapped.pose.pose.orientation.x);
-    q.setY(odomAftMapped.pose.pose.orientation.y);
-    q.setZ(odomAftMapped.pose.pose.orientation.z);
-    transform.setRotation( q );
-    br.sendTransform( tf::StampedTransform( transform, odomAftMapped.header.stamp, "camera_init", "body" ) );
+    static tf2_ros::TransformBroadcaster br(ros::global_node());
+    geometry_msgs::TransformStamped transform;
+    transform.header.stamp = odomAftMapped.header.stamp;
+    transform.header.frame_id = "camera_init";
+    transform.child_frame_id = "body";
+    transform.transform.translation.x = odomAftMapped.pose.pose.position.x;
+    transform.transform.translation.y = odomAftMapped.pose.pose.position.y;
+    transform.transform.translation.z = odomAftMapped.pose.pose.position.z;
+    transform.transform.rotation = odomAftMapped.pose.pose.orientation;
+    br.sendTransform(transform);
 }
 
 void publish_path(const ros::Publisher pubPath)

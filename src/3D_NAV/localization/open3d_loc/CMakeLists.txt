@@ -1,73 +1,45 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.8)
 project(open3d_loc)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
-SET(CMAKE_BUILD_TYPE "Release")
 
-find_package(catkin REQUIRED COMPONENTS
-  geometry_msgs
-  nav_msgs
-  sensor_msgs
-  roscpp
-  rospy
-  std_msgs
-  tf
-  message_generation
-  eigen_conversions
-)
-
-if(NOT Open3D_DIR)
-  set(Open3D_DIR "$ENV{HOME}/.local/opt/open3d-0.15.1/lib/cmake/Open3D")
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
+add_compile_options(-O3 -Wall -Wextra -Wpedantic)
 
+find_package(ament_cmake REQUIRED)
+find_package(nav3d_ros2_compat REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
 find_package(Open3D REQUIRED)
-
-include_directories(
-        ${catkin_INCLUDE_DIRS} 
-  ${PROJECT_SOURCE_DIR}
-  ${Open3D_INCLUDE_DIRS}
-  include
-)
-
-
-catkin_package(
-  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs message_runtime
-  DEPENDS
-  INCLUDE_DIRS
-)
+find_package(Eigen3 REQUIRED)
 
 add_library(open3d_registration src/open3d_registration/open3d_registration.cpp)
-target_link_libraries(open3d_registration ${Open3D_LIBRARIES})
-add_library(open3d_conversions src/open3d_conversions/open3d_conversions.cpp)
-target_link_libraries(open3d_conversions ${Open3D_LIBRARIES})
+target_include_directories(open3d_registration PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_link_libraries(open3d_registration PUBLIC Open3D::Open3D Eigen3::Eigen)
 
+add_library(open3d_conversions src/open3d_conversions/open3d_conversions.cpp)
+target_include_directories(open3d_conversions PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_link_libraries(open3d_conversions PUBLIC Open3D::Open3D Eigen3::Eigen)
+ament_target_dependencies(open3d_conversions nav3d_ros2_compat sensor_msgs)
 
 add_executable(global_localization_node src/global_localization.cpp)
-target_link_libraries(global_localization_node ${Open3D_LIBRARIES})
-target_link_libraries(global_localization_node open3d_registration)
-target_link_libraries(global_localization_node open3d_conversions)
-target_link_libraries(global_localization_node ${catkin_LIBRARIES})
+target_link_libraries(global_localization_node
+  open3d_registration open3d_conversions Open3D::Open3D Eigen3::Eigen)
+ament_target_dependencies(global_localization_node
+  rclcpp geometry_msgs nav_msgs sensor_msgs std_msgs tf2_ros)
 
-#############
-## Install ##
-#############
-
-# 安装可执行文件
-install(TARGETS open3d_registration
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-
-install(TARGETS open3d_conversions
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-
-install(TARGETS global_localization_node
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-
-install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
-install(DIRECTORY config DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
-install(DIRECTORY rviz_cfg DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
-install(DIRECTORY scripts DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+install(TARGETS open3d_registration open3d_conversions global_localization_node
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY include/ DESTINATION include)
+install(DIRECTORY launch config rviz_cfg DESTINATION share/${PROJECT_NAME})
+ament_package()

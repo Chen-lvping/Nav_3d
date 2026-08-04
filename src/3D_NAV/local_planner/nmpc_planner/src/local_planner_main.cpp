@@ -7,7 +7,7 @@
 int main(int argc, char** argv) {
     try {
         // 初始化ROS节点
-        ros::init(argc, argv, "nmpc_local_planner_node", ros::init_options::NoSigintHandler);
+        ros::init(argc, argv, "nmpc_local_planner_node");
         
         ROS_INFO("Starting NMPC Local Planner Node...");
         

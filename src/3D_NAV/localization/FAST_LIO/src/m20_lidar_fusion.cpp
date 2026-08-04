@@ -84,7 +84,8 @@ private:
     while (!front_queue_.empty() && !rear_queue_.empty())
     {
       const double difference =
-          (front_queue_.front()->header.stamp - rear_queue_.front()->header.stamp).toSec();
+          (rclcpp::Time(front_queue_.front()->header.stamp) -
+           rclcpp::Time(rear_queue_.front()->header.stamp)).seconds();
       if (std::abs(difference) <= max_sync_diff_)
       {
         const auto front = front_queue_.front();
@@ -127,7 +128,8 @@ private:
     }
 
     sensor_msgs::PointCloud2 fused = *front;
-    fused.header.stamp = std::min(front->header.stamp, rear->header.stamp);
+    fused.header.stamp = rclcpp::Time(front->header.stamp) <= rclcpp::Time(rear->header.stamp)
+      ? front->header.stamp : rear->header.stamp;
     fused.header.frame_id = output_frame_;
     fused.height = 1;
     fused.width = static_cast<std::uint32_t>(front_points + rear_points);

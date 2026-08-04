@@ -21,18 +21,19 @@ if (( AVAILABLE_BYTES < REQUIRED_BYTES )); then
   exit 3
 fi
 
-source /opt/ros/noetic/setup.bash
+ROS_DISTRO="${ROS_DISTRO:-humble}"
+source "/opt/ros/${ROS_DISTRO}/setup.bash"
 
 for topic in /m20/lidar/front /m20/lidar/rear /IMU; do
-  if ! rostopic info "${topic}" >/dev/null 2>&1; then
+  if ! ros2 topic info "${topic}" >/dev/null 2>&1; then
     echo "Required topic is unavailable: ${topic}" >&2
     exit 4
   fi
 done
 
 echo "Keep M20 completely stationary for ${DURATION} seconds."
-echo "Recording to ${OUTPUT}.bag"
-exec rosbag record --duration="${DURATION}" --lz4 -O "${OUTPUT}" \
+echo "Recording ROS 2 bag to ${OUTPUT}"
+exec timeout --signal=INT "${DURATION}" ros2 bag record -o "${OUTPUT}" \
   /m20/lidar/front \
   /m20/lidar/rear \
   /IMU

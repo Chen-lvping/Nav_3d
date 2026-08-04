@@ -114,10 +114,10 @@ private:
     double goal_yaw_;
 
     // 回调函数
-    void globalPathCallback(const nav_msgs::Path::ConstPtr& msg);
-    void currentStateCallback(const std_msgs::Float32MultiArray::ConstPtr& msg);
-    void obstacleCallback(const std_msgs::Float32MultiArray::ConstPtr& msg);
-    void navigationStateCallback(const std_msgs::UInt8::ConstPtr& msg);  // TODO: implement logic in later steps
+    void globalPathCallback(const nav_msgs::Path::ConstSharedPtr& msg);
+    void currentStateCallback(const std_msgs::Float32MultiArray::ConstSharedPtr& msg);
+    void obstacleCallback(const std_msgs::Float32MultiArray::ConstSharedPtr& msg);
+    void navigationStateCallback(const std_msgs::UInt8::ConstSharedPtr& msg);  // TODO: implement logic in later steps
     void planningTimerCallback(const ros::TimerEvent& event);
     
     // 核心功能函数
@@ -135,7 +135,7 @@ private:
                                       const std::vector<MPCSolver::State>& mpc_path);
     
     // 路径处理函数
-    bool processGlobalPathData(const nav_msgs::Path::ConstPtr& msg);
+    bool processGlobalPathData(const nav_msgs::Path::ConstSharedPtr& msg);
     double normalizeAngle(double angle);
     double quaternionToYaw(const geometry_msgs::Quaternion& q);
 

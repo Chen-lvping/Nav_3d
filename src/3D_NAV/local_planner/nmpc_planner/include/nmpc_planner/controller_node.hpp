@@ -97,8 +97,8 @@ private:
     static void signalHandler(int signum);
     
     // 回调函数
-    void localPlanCallback(const std_msgs::Float32MultiArray::ConstPtr& msg);
-    void navigationStateCallback(const std_msgs::UInt8::ConstPtr& msg);  // TODO: implement logic in later steps
+    void localPlanCallback(const std_msgs::Float32MultiArray::ConstSharedPtr& msg);
+    void navigationStateCallback(const std_msgs::UInt8::ConstSharedPtr& msg);  // TODO: implement logic in later steps
     void stateTimerCallback(const ros::TimerEvent& event);
     
     // 核心功能函数

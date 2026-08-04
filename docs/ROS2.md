@@ -1,80 +1,88 @@
-# ROS 2 compatibility
+# 原生 ROS 2 使用说明
 
-## Design
+## 结论
 
-The existing planner and controller are mature ROS 1 nodes. Rewriting every
-node at once would change algorithm behavior and couple the release to one ROS
-2 distribution. This branch instead adds a small ROS 2 `ament_python` package
-that translates configured standard messages through a private rosbridge
-websocket connection.
+当前 `ros2-native` 分支的生产链路是全栈原生 ROS 2：建图、定位、导航和底盘控制均直接使用 ROS 2 消息、服务、参数、DDS QoS 与 TF2。不存在 ROS 1 master 或桥接进程。
 
-This design supports Humble and Jazzy from the same source, allows ROS 1 and
-ROS 2 to run on their officially supported Ubuntu releases, and works across a
-Compose network on Linux, Windows, and macOS hosts.
+旧的 `galileo_lio`、ROS 1 RViz 插件和测试包保留为参考源码，并通过 `COLCON_IGNORE` 排除，不参与构建或运行。
 
-## Default topic mapping
+## 三种入口
 
-| Topic | Direction | Type |
-| --- | --- | --- |
-| `/planning_3d_PRM_node/goal_pose` | ROS 2 -> ROS 1 | `PoseStamped` |
-| `/planning_3d_PRM_node/planned_path` | ROS 1 -> ROS 2 | `Path` |
-| `/path_smooth`, `/local_path` | ROS 1 -> ROS 2 | `Path` |
-| `/navigation_state` | ROS 1 -> ROS 2 | `Int32` |
-| `/navigation_state_debug` | ROS 1 -> ROS 2 | `String` |
-| `/cmd_vel` | ROS 1 -> ROS 2 | `Twist` |
-| `/tf`, `/tf_static` | ROS 1 -> ROS 2 | `TFMessage` |
-
-`/odom` and the LiDAR point cloud are provided as disabled examples. Dense
-point clouds encoded as rosbridge JSON consume substantial CPU and bandwidth;
-for production sensors, run the driver/localization beside the ROS 1 core or
-use a dedicated binary bridge and bridge only the resulting TF/odometry.
-
-## Configuration
-
-Each entry in `config/bridge.yaml` has:
-
-- `topic`, `ros1_type`, and `ros2_type`
-- `direction`: `ros1_to_ros2` or `ros2_to_ros1`
-- optional `depth`, `reliability`, `durability`, `throttle_ms`, and `enabled`
-
-Only standard message packages installed in both containers work by default.
-For custom messages, install the ROS 1 definition in the core image and the
-equivalent ROS 2 definition in the adapter image before adding the mapping.
-Services, actions, and ROS parameters are not translated by this adapter.
-
-## Native launch
-
-Start ROS 1 and rosbridge:
+### 1. 建图
 
 ```bash
-roscore &
-roslaunch rosbridge_server rosbridge_websocket.launch port:=9090
+ros2 launch nav_bringup mapping.launch.py \
+  sensor:=livox \
+  lidar_topic:=/livox/lidar \
+  imu_topic:=/livox/imu \
+  save_map:=true
 ```
 
-In a ROS 2 shell:
+RoboSense：
 
 ```bash
-bash scripts/build_ros2.sh
-source ros2_ws/install/setup.bash
-ros2 launch nav3d_ros2_adapter bridge.launch.py \
-  rosbridge_host:=127.0.0.1 rosbridge_port:=9090
+ros2 launch nav_bringup mapping.launch.py \
+  sensor:=robosense \
+  lidar_topic:=/rslidar_points \
+  imu_topic:=/IMU
 ```
 
-Smoke test:
+FAST-LIO 发布 `/Odometry_loc`、`/cloud_registered` 和 TF。地图写入 `${NAV3D_DATA_ROOT}/point_cloud`。
+
+### 2. 已有地图定位
+
+先运行 FAST-LIO 获取连续里程计，再启动 ICP 全局定位：
 
 ```bash
-ros2 topic list
-ros2 topic echo /navigation_state_debug
-ros2 topic pub --once /planning_3d_PRM_node/goal_pose \
-  geometry_msgs/msg/PoseStamped '{header: {frame_id: map}, pose: {orientation: {w: 1.0}}}'
+ros2 launch nav_bringup localization.launch.py \
+  map_path:=/data/point_cloud/scans.pcd \
+  lidar_topic:=/cloud_registered \
+  odom_topic:=/Odometry_loc
 ```
 
-## Production notes
+在 RViz 2 发布 `/initialpose` 后，定位节点估计并持续发布 `map -> camera_init`，同时输出 `/localization_3d` 和 `/localization_3d_confidence`。
 
-- The Compose websocket port is not published to the host. If exposed outside
-  a trusted network, add TLS, authentication, and a firewall.
-- Keep `ROS_DOMAIN_ID` consistent with the ROS 2 robot or visualization host.
-- Use a command watchdog and emergency stop in the ROS 2 base adapter; a
-  bridged `/cmd_vel` topic is not a safety controller.
-- On Docker Desktop, use explicit TCP/UDP port mappings or an external DDS
-  router when ROS 2 discovery must cross the VM boundary.
+### 3. 导航
+
+```bash
+ros2 launch nav_bringup navigation.launch.py \
+  traversable_map:=/data/traversable/traversable_areas.pcd \
+  static_map:=/data/point_cloud/scans.pcd \
+  lidar_topic:=/cloud_registered_body \
+  use_obstacles:=true \
+  use_go2:=false
+```
+
+设置目标后数据链路为：
+
+```text
+/goal_pose -> planning_3d -> /path -> Bezier -> /path_smooth
+           -> NMPC local planner -> local plan -> NMPC controller -> /cmd_vel
+PointCloud2 -> obstacle_processor -> /obs_raw ------------^
+```
+
+Go2 实机执行时设置 `use_go2:=true`，并确保容器能访问机器人网卡和 Unitree SDK2 Python 包。
+
+## 主要接口
+
+| 接口 | 类型 | 说明 |
+|---|---|---|
+| `/livox/lidar`、`/rslidar_points` | PointCloud2/CustomMsg | 原始 LiDAR |
+| `/livox/imu`、`/IMU` | sensor_msgs/Imu | IMU |
+| `/Odometry_loc` | nav_msgs/Odometry | FAST-LIO 里程计 |
+| `/cloud_registered` | sensor_msgs/PointCloud2 | 配准点云 |
+| `/initialpose` | PoseWithCovarianceStamped | 全局定位初值 |
+| `/localization_3d` | PoseStamped | 地图坐标定位结果 |
+| `/goal_pose` | PoseStamped | ROS 2 导航目标 |
+| `/path_smooth` | nav_msgs/Path | 平滑全局路径 |
+| `/obs_raw` | Float32MultiArray | 动态障碍 XYZ 数组 |
+| `/cmd_vel` | geometry_msgs/Twist | 机器人速度指令 |
+
+## ROS 发行版与架构
+
+- ROS 2 Humble / Ubuntu 22.04
+- ROS 2 Jazzy / Ubuntu 24.04
+- `linux/amd64`、`linux/arm64`
+- DDS 实现可通过 `RMW_IMPLEMENTATION` 切换；所有节点使用标准 ROS 2 接口
+
+硬件驱动对内核、网卡、广播和设备权限仍有客观要求。Docker Compose 默认使用 host network、host IPC 和 `/dev` 映射。

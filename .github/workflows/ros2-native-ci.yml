@@ -1,0 +1,50 @@
+name: ROS 2 Native CI
+
+on:
+  push:
+    branches: [ros2-native]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate Python and package manifests
+        run: |
+          python -m compileall -q src/3D_NAV/nav_bringup/launch src/3D_NAV/localization/FAST_LIO/scripts src/3D_NAV/go2_base_controller
+          python - <<'PY'
+          from pathlib import Path
+          from xml.etree import ElementTree
+          for manifest in Path('src/3D_NAV').rglob('package.xml'):
+              if any((parent / 'COLCON_IGNORE').exists() for parent in (manifest.parent, *manifest.parents)):
+                  continue
+              ElementTree.parse(manifest)
+              text = manifest.read_text()
+              assert 'catkin' not in text and 'roscpp' not in text and 'rospy' not in text, manifest
+          PY
+      - name: Ensure bridge-free runtime
+        run: |
+          ! grep -R -E 'roscore|rosbridge|ROS_MASTER_URI' compose.yaml docker/entrypoint.ros2.sh src/3D_NAV/nav_bringup/launch
+
+  docker-humble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.ros2
+          push: false
+          tags: nav3d-native:humble-ci
+          build-args: |
+            ROS_DISTRO=humble
+            BUILD_JOBS=2
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

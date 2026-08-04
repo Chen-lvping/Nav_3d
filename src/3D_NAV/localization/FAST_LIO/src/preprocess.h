@@ -130,8 +130,8 @@ class Preprocess
   Preprocess();
   ~Preprocess();
   
-  void process(const livox_ros_driver2::CustomMsg::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out);
-  void process(const sensor_msgs::PointCloud2::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out);
+  void process(const livox_ros_driver2::CustomMsg::ConstSharedPtr &msg, PointCloudXYZI::Ptr &pcl_out);
+  void process(const sensor_msgs::PointCloud2::ConstSharedPtr &msg, PointCloudXYZI::Ptr &pcl_out);
   void set(bool feat_en, int lid_type, double bld, int pfilt_num);
 
   // sensor_msgs::PointCloud2::ConstPtr pointcloud;
@@ -147,12 +147,12 @@ class Preprocess
     
 
   private:
-  void avia_handler(const livox_ros_driver2::CustomMsg::ConstPtr &msg);
-  void oust64_handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
-  void velodyne_handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
-  void pandar_handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
-  void rslidar_handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
-  void sim_handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
+  void avia_handler(const livox_ros_driver2::CustomMsg::ConstSharedPtr &msg);
+  void oust64_handler(const sensor_msgs::PointCloud2::ConstSharedPtr &msg);
+  void velodyne_handler(const sensor_msgs::PointCloud2::ConstSharedPtr &msg);
+  void pandar_handler(const sensor_msgs::PointCloud2::ConstSharedPtr &msg);
+  void rslidar_handler(const sensor_msgs::PointCloud2::ConstSharedPtr &msg);
+  void sim_handler(const sensor_msgs::PointCloud2::ConstSharedPtr &msg);
   void give_feature(PointCloudXYZI &pl, vector<orgtype> &types);
   void pub_func(PointCloudXYZI &pl, const ros::Time &ct);
   int  plane_judge(const PointCloudXYZI &pl, vector<orgtype> &types, uint i, uint &i_nex, Eigen::Vector3d &curr_direct);

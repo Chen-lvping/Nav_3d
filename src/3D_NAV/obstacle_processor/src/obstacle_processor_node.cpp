@@ -1,4 +1,7 @@
-#include <tf/transform_listener.h>
+#include <tf2/LinearMath/Transform.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 #include "obstacle_processor/backward.hpp"
 #include "obstacle_processor/execution_classes.h"
 
@@ -26,6 +29,7 @@
 #include <geometry_msgs/PointStamped.h>
 #include <sys/time.h>
 #include <cmath>
+#include <chrono>
 #include <unordered_map>
 #include <vector>
 #include <omp.h>
@@ -482,7 +486,7 @@ double expansionCoefficient = 1;
 double expansion = 1;
 double publish_rate = 2.0;  // Publishing rate in Hz
 
-tf::TransformListener *listener_ptr;
+tf2_ros::Buffer *tf_buffer_ptr;
 sensor_msgs::PointCloud2 worldPoints;
 
 // Double-buffering mechanism for worldCloud to prevent callback reentry issues
@@ -495,7 +499,7 @@ std::mutex worldCloud_swap_mutex;  // Mutex for swapping buffers
 std::atomic<bool> lidar_callback_running(false);
 
 // Robot position caching for TF optimization
-static tf::StampedTransform robot_transform_cache;
+static geometry_msgs::TransformStamped robot_transform_cache;
 static ros::Time last_robot_transform_time;
 static const double ROBOT_TRANSFORM_CACHE_DURATION = 0.1; // 100ms cache duration
 static bool robot_transform_cache_valid = false;
@@ -715,8 +719,11 @@ void rcvLidarCallBack(const sensor_msgs::PointCloud2 &lidar_points)
   DEBUG_LOG("After local world processing: %zu points in cloud_filt", cloud_filt->size());
 
   try {
-    listener_ptr->waitForTransform(map_frame_id, base_frame_id, ros::Time(0), ros::Duration(2.0));
-  } catch (tf::TransformException &ex) {
+    if (!tf_buffer_ptr->canTransform(map_frame_id, base_frame_id, tf2::TimePointZero,
+                                    std::chrono::seconds(2))) {
+      throw tf2::TransformException("transform unavailable");
+    }
+  } catch (tf2::TransformException &ex) {
     ROS_ERROR("TF transform failed: %s", ex.what());
     lidar_callback_running = false;  // Release lock before returning
     return;
@@ -733,11 +740,12 @@ void rcvLidarCallBack(const sensor_msgs::PointCloud2 &lidar_points)
   if (!use_cached_transform) {
     // Update robot transform cache
     try {
-      listener_ptr->lookupTransform(map_frame_id, base_frame_id, ros::Time(0), robot_transform_cache);
+      robot_transform_cache = tf_buffer_ptr->lookupTransform(
+        map_frame_id, base_frame_id, tf2::TimePointZero, std::chrono::milliseconds(100));
       last_robot_transform_time = current_time;
       robot_transform_cache_valid = true;
       DEBUG_LOG("Updated robot transform cache");
-    } catch (tf::TransformException &ex) {
+    } catch (tf2::TransformException &ex) {
       ROS_ERROR_THROTTLE(1.0, "Robot position transform failed: %s", ex.what());
       lidar_callback_running = false;  // Release lock before returning
       return;
@@ -745,8 +753,8 @@ void rcvLidarCallBack(const sensor_msgs::PointCloud2 &lidar_points)
   }
   
   // Use cached transform to get robot position
-  tf::Vector3 robot_origin = robot_transform_cache.getOrigin();
-  robotPosition = Vector3d(robot_origin.x(), robot_origin.y(), robot_origin.z());
+  const auto & robot_origin = robot_transform_cache.transform.translation;
+  robotPosition = Vector3d(robot_origin.x, robot_origin.y, robot_origin.z);
   
   // Update local map based on robot position
   updateLocalMap(robotPosition);
@@ -769,13 +777,14 @@ void rcvLidarCallBack(const sensor_msgs::PointCloud2 &lidar_points)
   }
   
   // 优化：批量TF变换 - 获取一次变换矩阵并批量应用
-  tf::StampedTransform transform;
+  geometry_msgs::TransformStamped transform;
   bool transform_available = false;
   try {
-    listener_ptr->lookupTransform(map_frame_id, lidar_frame_id, ros::Time(0), transform);
+    transform = tf_buffer_ptr->lookupTransform(
+      map_frame_id, lidar_frame_id, tf2::TimePointZero, std::chrono::milliseconds(100));
     transform_available = true;
     DEBUG_LOG("Successfully obtained TF transform from %s to %s", lidar_frame_id.c_str(), map_frame_id.c_str());
-  } catch (tf::TransformException &ex) {
+  } catch (tf2::TransformException &ex) {
     ROS_ERROR_THROTTLE(1.0, "Failed to get TF transform: %s", ex.what());
     lidar_callback_running = false;  // Release lock before returning
     return;
@@ -786,9 +795,11 @@ void rcvLidarCallBack(const sensor_msgs::PointCloud2 &lidar_points)
   cloud_transformed->reserve(cloud_filt->size());
   
   if (transform_available) {
+    tf2::Transform tf_transform;
+    tf2::fromMsg(transform.transform, tf_transform);
     for (const auto &pt : cloud_filt->points) {
-      tf::Vector3 point_in(pt.x, pt.y, pt.z);
-      tf::Vector3 point_out = transform * point_in;
+      tf2::Vector3 point_in(pt.x, pt.y, pt.z);
+      tf2::Vector3 point_out = tf_transform * point_in;
       
       pcl::PointXYZ pt_transformed;
       pt_transformed.x = point_out.x();
@@ -1132,12 +1143,17 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "obstacle_processor");
   ros::NodeHandle nh("~");
 
+  std::string lidar_topic;
+  std::string world_map_topic;
+  nh.param<std::string>("lidar_topic", lidar_topic, "/points");
+  nh.param<std::string>("world_map_topic", world_map_topic, "/map");
+
   // pt_sub = nh.subscribe("/cloud_registered_body", 1, rcvLidarCallBack);
   // pt_sub = nh.subscribe("/cloud_registered_body_1", 1, rcvLidarCallBack);
   // pt_sub = nh.subscribe("/cloud_registered_body", 1, rcvLidarCallBack);
-  pt_sub = nh.subscribe("/points_e1r_front", 1, rcvLidarCallBack); // for simulation
+  pt_sub = nh.subscribe(lidar_topic, 1, rcvLidarCallBack);
   // world_sub = nh.subscribe("/3dmap", 1, rcvWorldCallBack);
-  world_sub = nh.subscribe("/map", 1, rcvWorldCallBack);
+  world_sub = nh.subscribe(world_map_topic, 1, rcvWorldCallBack);
   // world_sub = nh.subscribe("/planning_3d_PRM_node/pcd_map", 1, rcvWorldCallBack); // for simulation
 
   obs_pub = nh.advertise<sensor_msgs::PointCloud2>("obs_vis", 1);
@@ -1202,8 +1218,9 @@ int main(int argc, char **argv)
   ROS_INFO("  height_threshold_grid: %.3f m (grid detection threshold)", height_threshold_1);
   ROS_INFO("  height_threshold_fallback: %.3f m (fallback detection threshold)", height_threshold_3);
 
-  tf::TransformListener listener;
-  listener_ptr = &listener;
+  tf2_ros::Buffer tf_buffer(ros::global_node()->get_clock());
+  tf2_ros::TransformListener tf_listener(tf_buffer);
+  tf_buffer_ptr = &tf_buffer;
   world = new World(resolution);
 
   // while (ros::ok())

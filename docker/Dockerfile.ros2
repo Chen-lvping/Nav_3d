@@ -1,26 +1,46 @@
 ARG ROS_DISTRO=humble
 FROM ros:${ROS_DISTRO}-ros-base
 
-SHELL ["/bin/bash", "-c"]
-ARG DEBIAN_FRONTEND=noninteractive
 ARG ROS_DISTRO
+ARG CASADI_VERSION=3.6.7
+ARG BUILD_JOBS=4
+ENV DEBIAN_FRONTEND=noninteractive \
+    ROS_DISTRO=${ROS_DISTRO} \
+    NAV3D_WS=/opt/nav3d_ws \
+    NAV3D_DATA_ROOT=/data \
+    CASADI_ROOT=/opt/casadi \
+    CASADI_LIB_PATH=/opt/casadi/lib
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      python3-colcon-common-extensions python3-rosdep python3-venv python3-yaml \
-      ros-${ROS_DISTRO}-geometry-msgs ros-${ROS_DISTRO}-nav-msgs \
-      ros-${ROS_DISTRO}-sensor-msgs ros-${ROS_DISTRO}-std-msgs \
-      ros-${ROS_DISTRO}-tf2-msgs && \
-    python3 -m venv --system-site-packages /opt/nav3d_venv && \
-    /opt/nav3d_venv/bin/pip install --no-cache-dir 'roslibpy>=1.5.0' && \
+    build-essential cmake git ninja-build pkg-config python3-pip python3-rosdep \
+    libapr1-dev libboost-all-dev libeigen3-dev libopen3d-dev libpcl-dev libpcap-dev \
+    libyaml-cpp-dev libipopt-dev liblapack-dev gfortran \
+    ros-${ROS_DISTRO}-ament-cmake-auto ros-${ROS_DISTRO}-ament-cmake-python \
+    ros-${ROS_DISTRO}-pcl-conversions ros-${ROS_DISTRO}-tf2-ros \
+    ros-${ROS_DISTRO}-tf2-geometry-msgs ros-${ROS_DISTRO}-rviz2 \
+    ros-${ROS_DISTRO}-rosbag2 && \
     rm -rf /var/lib/apt/lists/*
 
-ENV PATH=/opt/nav3d_venv/bin:${PATH}
+RUN git clone --depth 1 --branch v${CASADI_VERSION} https://github.com/casadi/casadi.git /tmp/casadi && \
+    cmake -S /tmp/casadi -B /tmp/casadi/build -GNinja \
+      -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${CASADI_ROOT} \
+      -DWITH_IPOPT=ON -DWITH_PYTHON=OFF -DWITH_EXAMPLES=OFF && \
+    cmake --build /tmp/casadi/build --parallel ${BUILD_JOBS} && \
+    cmake --install /tmp/casadi/build && rm -rf /tmp/casadi
 
-COPY ros2_ws /opt/nav3d_ros2_ws
-WORKDIR /opt/nav3d_ros2_ws
-RUN source "/opt/ros/${ROS_DISTRO}/setup.bash" && colcon build --merge-install
+RUN git clone --depth 1 https://github.com/Livox-SDK/Livox-SDK2.git /tmp/livox-sdk2 && \
+    cmake -S /tmp/livox-sdk2 -B /tmp/livox-sdk2/build -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build /tmp/livox-sdk2/build --parallel ${BUILD_JOBS} && \
+    cmake --install /tmp/livox-sdk2/build && rm -rf /tmp/livox-sdk2 && ldconfig
 
-COPY docker/entrypoint.ros2.sh /ros_entrypoint_nav3d_ros2.sh
-RUN chmod +x /ros_entrypoint_nav3d_ros2.sh
-ENTRYPOINT ["/ros_entrypoint_nav3d_ros2.sh"]
-CMD ["ros2", "launch", "nav3d_ros2_adapter", "bridge.launch.py"]
+WORKDIR ${NAV3D_WS}
+COPY src/3D_NAV src
+RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
+    rosdep update && rosdep install --from-paths src --ignore-src -r -y --rosdistro ${ROS_DISTRO} && \
+    colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+COPY docker/entrypoint.ros2.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh && mkdir -p /data
+ENV LD_LIBRARY_PATH=/opt/casadi/lib:/usr/local/lib:${LD_LIBRARY_PATH}
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["ros2", "launch", "nav_bringup", "full_stack.launch.py"]

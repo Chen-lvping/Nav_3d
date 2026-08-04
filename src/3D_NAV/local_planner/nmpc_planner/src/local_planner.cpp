@@ -18,7 +18,7 @@ LocalPlanner::LocalPlanner()
     initializePublishersSubscribers();
     
     // 初始化TF
-    tf_buffer_ = std::make_shared<tf2_ros::Buffer>();
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(ros::global_node()->get_clock());
     tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
     
     // 初始化MPC求解器
@@ -73,7 +73,7 @@ void LocalPlanner::shutdown() {
     }
 }
 
-void LocalPlanner::globalPathCallback(const nav_msgs::Path::ConstPtr& msg) {
+void LocalPlanner::globalPathCallback(const nav_msgs::Path::ConstSharedPtr& msg) {
     std::lock_guard<std::mutex> lock(path_mutex_);
     
     if (msg->poses.empty()) {
@@ -87,7 +87,7 @@ void LocalPlanner::globalPathCallback(const nav_msgs::Path::ConstPtr& msg) {
     }
 }
 
-void LocalPlanner::currentStateCallback(const std_msgs::Float32MultiArray::ConstPtr& msg) {
+void LocalPlanner::currentStateCallback(const std_msgs::Float32MultiArray::ConstSharedPtr& msg) {
     std::lock_guard<std::mutex> lock(state_mutex_);
     
     if (msg->data.size() >= 4) {
@@ -103,7 +103,7 @@ void LocalPlanner::currentStateCallback(const std_msgs::Float32MultiArray::Const
     }
 }
 
-void LocalPlanner::obstacleCallback(const std_msgs::Float32MultiArray::ConstPtr& msg) {
+void LocalPlanner::obstacleCallback(const std_msgs::Float32MultiArray::ConstSharedPtr& msg) {
     std::lock_guard<std::mutex> lock(obstacle_mutex_);
 
     obstacles_.clear();
@@ -143,7 +143,7 @@ void LocalPlanner::obstacleCallback(const std_msgs::Float32MultiArray::ConstPtr&
     }
 }
 
-void LocalPlanner::navigationStateCallback(const std_msgs::UInt8::ConstPtr& msg) {
+void LocalPlanner::navigationStateCallback(const std_msgs::UInt8::ConstSharedPtr& msg) {
     // Convert uint8_t to NavState enum
     if (msg->data <= static_cast<uint8_t>(NavState::ABORTED)) {
         NavState new_state = static_cast<NavState>(msg->data);
@@ -344,7 +344,7 @@ void LocalPlanner::publishLocalPath(const MPCSolver::MPCResult& result) {
     local_path_pub_.publish(local_path);
 }
 
-bool LocalPlanner::processGlobalPathData(const nav_msgs::Path::ConstPtr& msg) {
+bool LocalPlanner::processGlobalPathData(const nav_msgs::Path::ConstSharedPtr& msg) {
     global_path_.clear();
 
     // 参考path2array.py的处理逻辑：从索引0开始，步长为1

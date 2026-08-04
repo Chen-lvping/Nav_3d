@@ -5,8 +5,6 @@
  *  修改：通过tf监听map->motion_link变换作为实时起点
  *********************************************************************/
 #include <ros/ros.h>
-#include <octomap/octomap.h>
-#include <octomap_msgs/Octomap.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <nav_msgs/Path.h>
@@ -19,7 +17,7 @@
 #include <std_srvs/Trigger.h>
 #include <Eigen/Dense>
 #include <pcl/io/pcd_io.h>
-#include <pcl_ros/point_cloud.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <pcl/filters/voxel_grid.h>
 #include <glog/logging.h>
 #include <nanoflann.hpp>
@@ -29,6 +27,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
+#include <chrono>
 #include <mutex>
 
 #include "gridnn.hpp"
@@ -51,7 +50,7 @@ namespace std{
 /* =========================  planner  ========================= */
 class PRMAStarPlanner{
 public:
-    PRMAStarPlanner():nh_("~"), tf_buffer_(), tf_listener_(tf_buffer_){
+    PRMAStarPlanner():nh_("~"), tf_buffer_(ros::global_node()->get_clock()), tf_listener_(tf_buffer_){
         // EDT 参数
         nh_.param("edt_xy_expand", edt_xy_expand_, 0.5);      // XY 方向扩展距离
         nh_.param("edt_z_thickness", edt_z_thickness_, 2);    // Z 方向膨胀层数
@@ -382,7 +381,7 @@ public:
     bool getCurrentPose(geometry_msgs::PoseStamped& current_pose) {
         try {
             geometry_msgs::TransformStamped tf_stamped = tf_buffer_.lookupTransform(
-                map_frame_, robot_frame_, ros::Time(0), ros::Duration(0.1));
+                map_frame_, robot_frame_, tf2::TimePointZero, std::chrono::milliseconds(100));
             
             current_pose.header.stamp = tf_stamped.header.stamp;
             current_pose.header.frame_id = map_frame_;
@@ -840,7 +839,7 @@ private:
     }
 
     /* -------------------- ROS 回调 -------------------- */
-    void goalCb(const geometry_msgs::PoseStamped::ConstPtr& msg){
+    void goalCb(const geometry_msgs::PoseStamped::ConstSharedPtr& msg){
         // 如果当前正在执行任务，先发送ABORTED再进入WAITING
         if (nav_state_ != NavState::WAITING && nav_state_ != NavState::COMPLETED && nav_state_ != NavState::ABORTED) {
             ROS_INFO("[Goal] Aborting current task before accepting new goal");
@@ -876,7 +875,7 @@ private:
      * @brief 动态障碍回调函数
      * 接收 /obs_raw 话题的障碍信息，更新动态障碍体素集合，并封禁受影响的PRM节点
      */
-    void obstacleCallback(const std_msgs::Float32MultiArray::ConstPtr& msg) {
+    void obstacleCallback(const std_msgs::Float32MultiArray::ConstSharedPtr& msg) {
         std::lock_guard<std::mutex> lock(dynamic_obstacle_mutex_);
 
         // 清空之前的动态障碍（每次重建）
