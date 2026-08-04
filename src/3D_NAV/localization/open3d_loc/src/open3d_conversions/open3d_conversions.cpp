@@ -136,23 +136,23 @@ void open3dToRos(const open3d::t::geometry::PointCloud& pointcloud, sensor_msgs:
       {
         if (data_type == "float")
         {
-          offset = sensor_msgs::addPointField(
+          offset = addPointField(
             ros_pc2, field_name + "_x", 1, sensor_msgs::msg::PointField::FLOAT32, offset);
-          offset = sensor_msgs::addPointField(
+          offset = addPointField(
             ros_pc2, field_name + "_y", 1, sensor_msgs::msg::PointField::FLOAT32, offset);
-          offset = sensor_msgs::addPointField(
+          offset = addPointField(
             ros_pc2, field_name + "_z", 1, sensor_msgs::msg::PointField::FLOAT32, offset);
-          offset += sensor_msgs::sizeOfPointField(sensor_msgs::msg::PointField::FLOAT32);
+          offset += sizeOfPointField(sensor_msgs::msg::PointField::FLOAT32);
         }
         else if (data_type == "int")
         {
-          offset = sensor_msgs::addPointField(
+          offset = addPointField(
             ros_pc2, field_name + "_x", 1, sensor_msgs::msg::PointField::INT8, offset);
-          offset = sensor_msgs::addPointField(
+          offset = addPointField(
             ros_pc2, field_name + "_y", 1, sensor_msgs::msg::PointField::INT8, offset);
-          offset = sensor_msgs::addPointField(
+          offset = addPointField(
             ros_pc2, field_name + "_z", 1, sensor_msgs::msg::PointField::INT8, offset);
-          offset += sensor_msgs::sizeOfPointField(sensor_msgs::msg::PointField::INT8);
+          offset += sizeOfPointField(sensor_msgs::msg::PointField::INT8);
         }
         else
         {
