@@ -8,7 +8,6 @@
 #include <fast_lio/msg/pose6_d.hpp>
 #include <sensor_msgs/Imu.h>
 #include <nav_msgs/Odometry.h>
-#include <eigen_conversions/eigen_msg.h>
 
 using namespace std;
 using namespace Eigen;
