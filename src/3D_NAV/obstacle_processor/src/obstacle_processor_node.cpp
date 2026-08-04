@@ -34,6 +34,7 @@
 #include <vector>
 #include <omp.h>
 #include <atomic>  // For atomic flags to prevent callback reentry
+#include <memory>
 #include <mutex>   // For mutex protection
 
 using namespace std;
@@ -100,7 +101,8 @@ bool ObstacleExpander::initialized_ = false;
 pcl::PointCloud<pcl::PointXYZ>::Ptr voxel_grid_downsample(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud, 
                                                           double leaf_size) {
     // Create output cloud with proper memory alignment
-    pcl::PointCloud<pcl::PointXYZ>::Ptr output_cloud = boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+    pcl::PointCloud<pcl::PointXYZ>::Ptr output_cloud =
+        std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
     
     if (!input_cloud || input_cloud->empty()) {
         if (input_cloud) {
@@ -136,7 +138,8 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr voxel_grid_downsample(pcl::PointCloud<pcl::P
     } catch (const std::exception& e) {
         ROS_ERROR("VoxelGrid downsampling failed: %s. Falling back to original cloud.", e.what());
         // Return a copy of the original cloud to avoid memory issues
-        pcl::PointCloud<pcl::PointXYZ>::Ptr fallback_cloud = boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+        pcl::PointCloud<pcl::PointXYZ>::Ptr fallback_cloud =
+            std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
         pcl::copyPointCloud(*input_cloud, *fallback_cloud);
         return fallback_cloud;
     }
@@ -147,7 +150,8 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr voxel_grid_downsample(pcl::PointCloud<pcl::P
 // avoiding memory corruption issues in both PCL VoxelGrid and ApproximateVoxelGrid
 pcl::PointCloud<pcl::PointXYZ>::Ptr spatial_downsample(pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud,
                                                        double leaf_size) {
-    pcl::PointCloud<pcl::PointXYZ>::Ptr output_cloud = boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+    pcl::PointCloud<pcl::PointXYZ>::Ptr output_cloud =
+        std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
 
     if (!input_cloud || input_cloud->empty()) {
         if (input_cloud) {
