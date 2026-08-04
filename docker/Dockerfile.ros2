@@ -6,12 +6,15 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG ROS_DISTRO
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      python3-colcon-common-extensions python3-pip python3-rosdep python3-yaml \
+      python3-colcon-common-extensions python3-rosdep python3-venv python3-yaml \
       ros-${ROS_DISTRO}-geometry-msgs ros-${ROS_DISTRO}-nav-msgs \
       ros-${ROS_DISTRO}-sensor-msgs ros-${ROS_DISTRO}-std-msgs \
       ros-${ROS_DISTRO}-tf2-msgs && \
-    python3 -m pip install --no-cache-dir 'roslibpy>=1.5.0' && \
+    python3 -m venv --system-site-packages /opt/nav3d_venv && \
+    /opt/nav3d_venv/bin/pip install --no-cache-dir 'roslibpy>=1.5.0' && \
     rm -rf /var/lib/apt/lists/*
+
+ENV PATH=/opt/nav3d_venv/bin:${PATH}
 
 COPY ros2_ws /opt/nav3d_ros2_ws
 WORKDIR /opt/nav3d_ros2_ws
