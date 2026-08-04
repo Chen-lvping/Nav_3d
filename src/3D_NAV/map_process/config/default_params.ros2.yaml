@@ -1,0 +1,24 @@
+map_process_node:
+  ros__parameters:
+    trajectory_format: 1
+    save_individual_regions: false
+    trajectory_sample_interval: 0.95
+    seed_search_radius: 0.5
+    seed_height_offset: 0.4
+    normal_angle_threshold: 30.0
+    curvature_threshold: 0.15
+    height_threshold: 0.1
+    search_radius: 0.1
+    min_cluster_size: 10
+    max_cluster_size: 1000000
+    normal_search_radius: 0.3
+    merge_distance_threshold: 0.1
+    min_region_size: 1
+    remove_outliers: true
+    max_ground_normal_angle: 45.0
+    enable_height_filter: false
+    seed_height_diff_threshold: 0.1
+    seed_xy_search_radius: 10.0
+    enable_voxel_downsampling: true
+    voxel_size: 0.10
+    downsampling_threshold: 1000000

@@ -42,7 +42,13 @@ RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
     apt-get update && rosdep update && \
     rosdep install --from-paths src --ignore-src -r -y --rosdistro ${ROS_DISTRO} && \
     rm -rf /var/lib/apt/lists/* && \
-    colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+    colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    . install/setup.sh && \
+    for launch_file in sensors.launch.py mapping.launch.py map_processing.launch.py localization.launch.py \
+      global_planning.launch.py perception.launch.py local_planning.launch.py \
+      navigation.launch.py full_stack.launch.py; do \
+      ros2 launch nav_bringup "${launch_file}" --show-args >/dev/null; \
+    done
 
 COPY docker/entrypoint.ros2.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh && mkdir -p /data

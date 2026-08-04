@@ -35,7 +35,7 @@ restart the planner when the offline map changes.
 | `nmpc_planner` | Local path and `/cmd_vel` | Generic, CasADi required |
 | `obstacle_processor` | Live obstacle extraction | Generic after topic/TF remap |
 | `map_publisher` | Static point-cloud map publication | Generic |
-| `FAST_LIO`, `galileo_lio` | LiDAR/IMU localization | Sensor-specific |
+| `FAST_LIO`, `open3d_loc` | LiDAR/IMU odometry and map localization | Sensor-specific |
 | `livox_ros_driver2`, `rslidar_sdk` | Sensor transport | Hardware-specific |
 | `go2_base_controller` | `/cmd_vel` to Unitree SDK | Robot-specific example |
 | `nav_bringup` | Integration and launch arguments | Integration boundary |
@@ -50,5 +50,14 @@ source code.
 3. Package YAML: algorithm parameters for one sensor or robot profile.
 4. Platform bridge configuration: network interface, peer address, SDK mode.
 
-`nav_bringup/bringup_navigation.launch` is the sensor- and base-neutral entry
-point. MID360, Go2, and M20 launches are concrete examples built around it.
+`nav_bringup` is the sensor- and base-neutral integration layer. Its launch
+modules can be started independently or composed by `full_stack.launch.py`:
+
+- `sensors.launch.py`: Livox or RoboSense transport.
+- `mapping.launch.py`: sensor transport plus FAST-LIO mapping/odometry.
+- `map_processing.launch.py`: offline traversable-map extraction.
+- `localization.launch.py`: Open3D map localization.
+- `global_planning.launch.py`: static map, PRM, and Bezier optimization.
+- `perception.launch.py`: online obstacle extraction.
+- `local_planning.launch.py`: NMPC planning/control and optional Go2 bridge.
+- `navigation.launch.py`: composition of the three navigation modules.

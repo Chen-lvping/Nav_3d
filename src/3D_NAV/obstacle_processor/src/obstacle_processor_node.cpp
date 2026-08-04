@@ -1194,7 +1194,9 @@ int main(int argc, char **argv)
 
   // Multi-layer obstacle detection parameters
   nh.param("map/layer_gap_threshold", layer_gap_threshold, 0.3);
-  nh.param("map/layer_merge_min_points", (int&)layer_merge_min_points, 3);
+  int layer_merge_min_points_param = static_cast<int>(layer_merge_min_points);
+  nh.param("map/layer_merge_min_points", layer_merge_min_points_param, 3);
+  layer_merge_min_points = static_cast<size_t>(std::max(1, layer_merge_min_points_param));
   nh.param("map/layer_height_tolerance", layer_height_tolerance, 0.15);
 
   // Publishing rate parameter

@@ -2,7 +2,7 @@ name: ROS 2 Native CI
 
 on:
   push:
-    branches: [ros2-native]
+    branches: [ros2-native, ros2-modular-cleanup]
   pull_request:
   workflow_dispatch:
 

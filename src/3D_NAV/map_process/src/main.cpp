@@ -138,7 +138,10 @@ int main(int argc, char** argv) {
     std::cout << "  Processing time: " << std::chrono::duration<double>(processing_time).count() << " seconds" << std::endl;
     std::cout << "  Total input points: " << total_points << std::endl;
     std::cout << "  Traversable points: " << traversable_points << std::endl;
-    std::cout << "  Coverage: " << (100.0 * traversable_points / total_points) << "%" << std::endl;
+    const double coverage = total_points > 0
+        ? 100.0 * static_cast<double>(traversable_points) / total_points
+        : 0.0;
+    std::cout << "  Coverage: " << coverage << "%" << std::endl;
     std::cout << "  Number of regions: " << num_regions << std::endl;
     
     // Save results
@@ -163,7 +166,10 @@ int main(int argc, char** argv) {
         auto regions = extractor.getRegions();
         
         for (size_t i = 0; i < regions.size(); ++i) {
-            std::string region_file = output_dir + "/region_" + std::to_string(i) + ".pcd";
+            const std::string region_prefix = output_dir.empty()
+                ? "region_"
+                : output_dir + "/region_";
+            std::string region_file = region_prefix + std::to_string(i) + ".pcd";
             map_process::Utils::savePointCloud(regions[i], region_file);
         }
     }

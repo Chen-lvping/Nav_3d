@@ -532,13 +532,15 @@ private:
         KdTree kdtree(3,mat);
         kdtree.index->buildIndex();
 
-        const double rad=step_size_*1.0;          // 距离上限
+        const double radius = step_size_;
+        const double radius_squared = radius * radius;
         nanoflann::SearchParams params;
         int slope_rejected = 0;  // 统计被拒绝的边数
         int clearance_rejected = 0;  // 统计因clearance被拒绝的边数
         for(size_t i=0;i<vertices_.size();++i){
             std::vector<std::pair<long int, double>> ret;
-            kdtree.index->radiusSearch(mat.col(i).data(), rad, ret, params);
+            kdtree.index->radiusSearch(
+                mat.col(i).data(), radius_squared, ret, params);
             std::vector<std::pair<double,int>> tmp;
             for(auto&r:ret) if(r.first!=static_cast<long>(i))
                 tmp.emplace_back(r.second,static_cast<int>(r.first));
