@@ -27,7 +27,7 @@ add_library(open3d_conversions src/open3d_conversions/open3d_conversions.cpp)
 target_include_directories(open3d_conversions PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_link_libraries(open3d_conversions PUBLIC Open3D::Open3D Eigen3::Eigen)
+target_link_libraries(open3d_conversions Open3D::Open3D Eigen3::Eigen)
 ament_target_dependencies(open3d_conversions nav3d_ros2_compat sensor_msgs)
 
 add_executable(global_localization_node src/global_localization.cpp)
