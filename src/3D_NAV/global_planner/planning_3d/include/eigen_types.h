@@ -1,22 +1,15 @@
-//
-// Created by xiang on 2021/7/16.
-//
+#ifndef PLANNING_3D_EIGEN_TYPES_H
+#define PLANNING_3D_EIGEN_TYPES_H
 
-#ifndef MAPPING_EIGEN_TYPES_H
-#define MAPPING_EIGEN_TYPES_H
-
-// 引入Eigen头文件与常用类型
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 
-#include "sophus/se2.hpp"
-#include "sophus/se3.hpp"
+#include <cstddef>
 
 using Vec2i = Eigen::Vector2i;
 using Vec3i = Eigen::Vector3i;
 using Vec3b = Eigen::Matrix<char, 3, 1>;
-
 using Vec2d = Eigen::Vector2d;
 using Vec2f = Eigen::Vector2f;
 using Vec3d = Eigen::Vector3d;
@@ -47,82 +40,72 @@ using Mat9d = Eigen::Matrix<double, 9, 9>;
 using Mat96d = Eigen::Matrix<double, 9, 6>;
 using Mat15d = Eigen::Matrix<double, 15, 15>;
 using Mat18d = Eigen::Matrix<double, 18, 18>;
-
 using VecXd = Eigen::Matrix<double, -1, 1>;
 using MatXd = Eigen::Matrix<double, -1, -1>;
 using MatX18d = Eigen::Matrix<double, -1, 18>;
-
 using Quatd = Eigen::Quaterniond;
 using Quatf = Eigen::Quaternionf;
 
-const Mat3d Eye3d = Mat3d::Identity();
-const Mat3f Eye3f = Mat3f::Identity();
-const Vec3d Zero3d(0, 0, 0);
-const Vec3f Zero3f(0, 0, 0);
-
-// pose represented as sophus structs
-using SE2 = Sophus::SE2d;
-using SE2f = Sophus::SE2f;
-using SO2 = Sophus::SO2d;
-using SE3 = Sophus::SE3d;
-using SE3f = Sophus::SE3f;
-using SO3 = Sophus::SO3d;
-
+inline const Mat3d Eye3d = Mat3d::Identity();
+inline const Mat3f Eye3f = Mat3f::Identity();
+inline const Vec3d Zero3d = Vec3d::Zero();
+inline const Vec3f Zero3f = Vec3f::Zero();
 using IdType = unsigned long;
 
-// Vec2i 可用于索引，定义它的小于号，用于构建以它为key的maps
-namespace sad {
-
-template <int N>
-struct map_range{
-    double x_min, x_max, y_min, y_max, z_min, z_max;
-};
-/// 矢量比较
-template <int N>
-struct less_vec {
-    inline bool operator()(const Eigen::Matrix<int, N, 1>& v1, const Eigen::Matrix<int, N, 1>& v2) const;
+namespace sad
+{
+template<int N>
+struct map_range
+{
+  double x_min, x_max, y_min, y_max, z_min, z_max;
 };
 
-/// 矢量哈希
-template <int N>
-struct hash_vec {
-    inline size_t operator()(const Eigen::Matrix<int, N, 1>& v) const;
+template<int N>
+struct less_vec
+{
+  bool operator()(
+    const Eigen::Matrix<int, N, 1> & lhs,
+    const Eigen::Matrix<int, N, 1> & rhs) const;
 };
 
-// 实现2D和3D的比较
-template <>
-inline bool less_vec<2>::operator()(const Eigen::Matrix<int, 2, 1>& v1, const Eigen::Matrix<int, 2, 1>& v2) const {
-    return v1[0] < v2[0] || (v1[0] == v2[0] && v1[1] < v2[1]);
-}
-
-template <>
-inline bool less_vec<3>::operator()(const Eigen::Matrix<int, 3, 1>& v1, const Eigen::Matrix<int, 3, 1>& v2) const {
-    return v1[0] < v2[0] || (v1[0] == v2[0] && v1[1] < v2[1]) || (v1[0] == v2[0] && v1[1] == v2[1] && v1[2] < v2[2]);
-}
-
-/// @see Optimized Spatial Hashing for Collision Detection of Deformable Objects, Matthias Teschner et. al., VMV 2003
-template <>
-inline size_t hash_vec<2>::operator()(const Eigen::Matrix<int, 2, 1>& v) const {
-    return size_t(((v[0] * 73856093) ^ (v[1] * 471943)) % 10000000);
-}
-
-template <>
-inline size_t hash_vec<3>::operator()(const Eigen::Matrix<int, 3, 1>& v) const {
-    return size_t(((v[0] * 73856093) ^ (v[1] * 471943) ^ (v[2] * 83492791)) % 10000000);
-}
-
-constexpr auto less_vec2i = [](const Vec2i& v1, const Vec2i& v2) {
-    return v1[0] < v2[0] || (v1[0] == v2[0] && v1[1] < v2[1]);
+template<int N>
+struct hash_vec
+{
+  std::size_t operator()(const Eigen::Matrix<int, N, 1> & value) const;
 };
 
-template <typename S>
-inline SE3 Mat4ToSE3(const Eigen::Matrix<S, 4, 4>& m) {
-    /// 对R做归一化，防止sophus里的检查不过
-    Quatd q(m.template block<3, 3>(0, 0).template cast<double>());
-    q.normalize();
-    return SE3(q, m.template block<3, 1>(0, 3).template cast<double>());
+template<>
+inline bool less_vec<2>::operator()(const Vec2i & lhs, const Vec2i & rhs) const
+{
+  return lhs[0] < rhs[0] || (lhs[0] == rhs[0] && lhs[1] < rhs[1]);
 }
 
+template<>
+inline bool less_vec<3>::operator()(const Vec3i & lhs, const Vec3i & rhs) const
+{
+  return lhs[0] < rhs[0] ||
+         (lhs[0] == rhs[0] && lhs[1] < rhs[1]) ||
+         (lhs[0] == rhs[0] && lhs[1] == rhs[1] && lhs[2] < rhs[2]);
+}
+
+template<>
+inline std::size_t hash_vec<2>::operator()(const Vec2i & value) const
+{
+  return static_cast<std::size_t>(
+    ((value[0] * 73856093) ^ (value[1] * 471943)) % 10000000);
+}
+
+template<>
+inline std::size_t hash_vec<3>::operator()(const Vec3i & value) const
+{
+  return static_cast<std::size_t>(
+    ((value[0] * 73856093) ^ (value[1] * 471943) ^ (value[2] * 83492791)) %
+    10000000);
+}
+
+inline constexpr auto less_vec2i = [](const Vec2i & lhs, const Vec2i & rhs) {
+  return lhs[0] < rhs[0] || (lhs[0] == rhs[0] && lhs[1] < rhs[1]);
+};
 }  // namespace sad
 
-#endif  // MAPPING_EIGEN_TYPES_H
+#endif  // PLANNING_3D_EIGEN_TYPES_H

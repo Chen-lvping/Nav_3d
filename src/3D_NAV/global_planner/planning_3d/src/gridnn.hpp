@@ -7,11 +7,11 @@
 
 #include "bfnn.h"
 #include "eigen_types.h"
-#include "math_utils.h"
 #include "point_types.h"
 
 #include <glog/logging.h>
 #include <execution>
+#include <limits>
 #include <map>
 
 namespace sad {
@@ -240,7 +240,8 @@ bool GridNN<dim>::GetClosestPointForCloudMT(CloudPtr ref, CloudPtr query,
         if (GetClosestPoint(query->points[idx], cp, cp_idx)) {
             matches[idx] = {cp_idx, idx};
         } else {
-            matches[idx] = {math::kINVALID_ID, math::kINVALID_ID};
+            matches[idx] = {
+                std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()};
         }
     });
 
