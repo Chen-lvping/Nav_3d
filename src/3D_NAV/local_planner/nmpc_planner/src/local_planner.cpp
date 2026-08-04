@@ -334,7 +334,6 @@ void LocalPlanner::publishLocalPath(const MPCSolver::MPCResult& result) {
         pose_stamped.pose.orientation.w = cos(theta / 2.0);
         
         // 设置header
-        pose_stamped.header.seq = static_cast<uint32_t>(i);
         pose_stamped.header.stamp = ros::Time::now();
         pose_stamped.header.frame_id = map_frame_;
         

@@ -135,9 +135,14 @@ class Publisher
   };
 public:
   Publisher() = default;
+
   template<typename MessageT>
-  explicit Publisher(typename rclcpp::Publisher<MessageT>::SharedPtr publisher)
-  : holder_(std::make_shared<Holder<MessageT>>(std::move(publisher))) {}
+  static Publisher from_rclcpp(typename rclcpp::Publisher<MessageT>::SharedPtr publisher)
+  {
+    Publisher result;
+    result.holder_ = std::make_shared<Holder<MessageT>>(std::move(publisher));
+    return result;
+  }
 
   template<typename MessageT>
   void publish(const MessageT & message) const
@@ -233,7 +238,7 @@ public:
   {
     auto qos = rclcpp::QoS(rclcpp::KeepLast(std::max<std::size_t>(1, depth))).reliable();
     if (latch) {qos.transient_local();}
-    return Publisher(node_->create_publisher<MessageT>(topic, qos));
+    return Publisher::from_rclcpp<MessageT>(node_->create_publisher<MessageT>(topic, qos));
   }
 
   template<typename MessageT, typename ObjectT>
