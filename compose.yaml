@@ -1,0 +1,50 @@
+name: nav3d
+
+services:
+  ros1:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        ROS_DISTRO: noetic
+    image: nav3d:noetic
+    init: true
+    environment:
+      ROS_MASTER_URI: http://ros1:11311
+      ROS_HOSTNAME: ros1
+      NAV3D_DATA_ROOT: /data
+      NAV3D_LAUNCH: ${NAV3D_LAUNCH:-}
+    volumes:
+      - ${NAV3D_DATA_ROOT:-./data}:/data
+    command:
+      - bash
+      - -lc
+      - >-
+        roscore &
+        until rostopic list >/dev/null 2>&1; do sleep 1; done;
+        roslaunch rosbridge_server rosbridge_websocket.launch port:=9090 &
+        if [[ -n "$${NAV3D_LAUNCH:-}" ]]; then eval "$${NAV3D_LAUNCH}"; else wait -n; fi
+    healthcheck:
+      test: ["CMD-SHELL", "rostopic list >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ros2-adapter:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ros2
+      args:
+        ROS_DISTRO: ${ROS2_DISTRO:-humble}
+    image: nav3d:${ROS2_DISTRO:-humble}-adapter
+    init: true
+    depends_on:
+      ros1:
+        condition: service_healthy
+    environment:
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      ROSBRIDGE_HOST: ros1
+      ROSBRIDGE_PORT: 9090
+      NAV3D_BRIDGE_CONFIG: /config/bridge.yaml
+    volumes:
+      - ./ros2_ws/src/nav3d_ros2_adapter/config:/config:ro

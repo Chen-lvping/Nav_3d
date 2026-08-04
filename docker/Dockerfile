@@ -32,11 +32,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       python3-catkin-tools python3-rosdep python3-rospkg \
       ros-${ROS_DISTRO}-geometry-msgs ros-${ROS_DISTRO}-nav-msgs \
       ros-${ROS_DISTRO}-pcl-conversions ros-${ROS_DISTRO}-pcl-ros \
-      ros-${ROS_DISTRO}-pluginlib ros-${ROS_DISTRO}-roscpp \
-      ros-${ROS_DISTRO}-rospy ros-${ROS_DISTRO}-rviz \
-      ros-${ROS_DISTRO}-sensor-msgs ros-${ROS_DISTRO}-std-msgs \
-      ros-${ROS_DISTRO}-tf ros-${ROS_DISTRO}-tf2 \
-      ros-${ROS_DISTRO}-tf2-geometry-msgs ros-${ROS_DISTRO}-tf2-ros && \
+      ros-${ROS_DISTRO}-pluginlib ros-${ROS_DISTRO}-rosbridge-server \
+      ros-${ROS_DISTRO}-roscpp ros-${ROS_DISTRO}-rospy \
+      ros-${ROS_DISTRO}-rviz ros-${ROS_DISTRO}-sensor-msgs \
+      ros-${ROS_DISTRO}-std-msgs ros-${ROS_DISTRO}-tf \
+      ros-${ROS_DISTRO}-tf2 ros-${ROS_DISTRO}-tf2-geometry-msgs \
+      ros-${ROS_DISTRO}-tf2-ros && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=casadi-builder /opt/casadi /opt/casadi

@@ -1,85 +1,79 @@
 # Nav_3d
 
-Nav_3d is a ROS 1 3D navigation workspace for legged and mobile robots. The
-reusable navigation chain is separated from sensor drivers and robot SDKs so a
-new platform only needs to satisfy a small set of ROS topic and TF contracts.
+Nav_3d is a portable ROS 1 3D navigation workspace with a ROS 2 compatibility
+adapter for legged and mobile robots. The proven Noetic algorithm stack remains
+unchanged; standard topics are exposed to ROS 2 Humble or Jazzy through a
+distribution-independent gateway.
 
 ```text
-map + trajectory -> traversable-area extraction
-localization + traversable PCD -> PRM/A* -> Bezier -> NMPC -> /cmd_vel
-point cloud + static map -> dynamic obstacles --------------------^
+ROS 2 robot / visualization
+          <-> nav3d_ros2_adapter <-> rosbridge <-> ROS 1 Nav_3d core
+                                              map -> PRM/A* -> NMPC -> /cmd_vel
 ```
 
-## Supported baseline
+## Supported deployment matrix
 
-- ROS Noetic on Ubuntu 20.04, or the provided Docker image
-- `amd64` and `arm64` for the generic algorithm stack
-- PCL 1.10, Eigen 3, and CasADi 3.5.5 with IPOPT
-- Included profiles: generic ROS interface, Livox MID360 + Go2, and M20
+| Layer | Supported baseline |
+| --- | --- |
+| Navigation core | ROS 1 Noetic / Ubuntu 20.04 |
+| ROS 2 adapter | ROS 2 Humble / Ubuntu 22.04; Jazzy / Ubuntu 24.04 |
+| Host OS | Linux, Windows 10/11 + Docker Desktop, macOS + Docker Desktop |
+| CPU | `amd64` and `arm64` generic stack |
+| Container runtime | Docker Engine/Desktop with Compose v2 |
 
-"Any platform" means any host and robot that can provide the documented ROS 1
-interfaces. Native ROS Noetic is tied to Ubuntu 20.04; use Docker on newer
-Ubuntu releases or other Linux distributions. Robot SDKs and kernel drivers
-may still impose their own CPU, OS, and network restrictions.
+Native ROS installations remain tied to the operating systems supported by
+their ROS distribution. Docker is the compatibility boundary for other hosts.
+Sensor drivers, robot SDKs, GPU access, real-time kernels, USB/CAN devices, and
+host networking can still impose platform-specific restrictions.
 
-## Quick start
-
-Clone and build the generic stack:
+## Fastest start: ROS 1 + ROS 2
 
 ```bash
-git clone https://github.com/Chen-lvping/Nav_3d.git nav_3d_ws
-cd nav_3d_ws
+git clone -b ros2-docker-portable https://github.com/Chen-lvping/Nav_3d.git
+cd Nav_3d
+export NAV3D_DATA_ROOT=/absolute/path/to/nav3d_data
+export ROS2_DISTRO=humble                 # or jazzy
+docker compose build
+docker compose up
+```
+
+By default Compose starts the ROS 1 master, rosbridge, and the ROS 2 adapter.
+Start the navigation launch after mounting valid map data:
+
+```bash
+NAV3D_LAUNCH='roslaunch nav_bringup bringup_navigation.launch pcd_path:=/data/traversable/traversable_areas.pcd' \
+docker compose up
+```
+
+ROS 2 can then send a goal and consume the resulting paths, TF, state, and
+`/cmd_vel`. Edit `ros2_ws/src/nav3d_ros2_adapter/config/bridge.yaml` to change
+topic directions, QoS, or optional interfaces.
+
+## Native builds
+
+ROS 1 Noetic:
+
+```bash
 source scripts/nav3d_env.sh
 scripts/build_workspace.sh core
 ```
 
-Place maps outside Git, or under `src/data`, then set the data root:
+ROS 2 adapter (Humble/Jazzy):
 
 ```bash
-export NAV3D_DATA_ROOT=/absolute/path/to/nav3d_data
-source devel/setup.bash
-roslaunch nav_bringup bringup_navigation.launch \
-  pcd_path:="$NAV3D_DATA_ROOT/traversable/traversable_areas.pcd"
-```
-
-The generic launch does not start a sensor driver, localization node, or robot
-bridge. It expects `map -> base_link` and publishes `/cmd_vel`; enable optional
-static-map and obstacle inputs with launch arguments after their contracts are
-available.
-
-Docker build and run:
-
-```bash
-docker build -f docker/Dockerfile -t nav3d:noetic .
-docker run --rm -it --network host \
-  -v /absolute/path/to/nav3d_data:/data \
-  -e NAV3D_DATA_ROOT=/data nav3d:noetic
+bash scripts/build_ros2.sh
+source ros2_ws/install/setup.bash
+ros2 launch nav3d_ros2_adapter bridge.launch.py rosbridge_host:=127.0.0.1
 ```
 
 ## Documentation
 
-- [Architecture and package ownership](docs/ARCHITECTURE.md)
+- [ROS 2 design, usage, and limitations](docs/ROS2.md)
 - [Native and Docker deployment](docs/DEPLOYMENT.md)
+- [Architecture and package ownership](docs/ARCHITECTURE.md)
 - [Sensor and robot porting guide](docs/PORTING_GUIDE.md)
 - [ROS topic, TF, and file contracts](docs/INTERFACES.md)
-- [Runtime data policy](src/data/README.md)
-- [Existing MID360/M20 runbooks](src/3D_NAV/README.md)
+- [Third-party notes](docs/THIRD_PARTY.md)
 
-## Repository layout
-
-```text
-src/3D_NAV/
-  localization/       sensor-specific localization and map publication
-  map_process/        offline traversable-area extraction
-  global_planner/     PRM/A* planning and Bezier smoothing
-  local_planner/      NMPC local planning and velocity control
-  obstacle_processor/ dynamic obstacle extraction
-  go2_base_controller example /cmd_vel-to-platform bridge
-  nav_bringup/        generic and platform integration launches
-scripts/              environment, build, and portability checks
-docker/               reproducible ROS Noetic build environment
-```
-
-Runtime bags, point clouds, generated maps, build trees, machine credentials,
-and network-specific values are intentionally excluded from Git. See
-[third-party notes](docs/THIRD_PARTY.md) before redistributing a derived image.
+Runtime bags, point clouds, generated maps, build trees, credentials, and
+network-specific values are intentionally excluded from Git.

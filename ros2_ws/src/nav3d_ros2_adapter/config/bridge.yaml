@@ -1,0 +1,66 @@
+bridges:
+  # Commands and goals originate in ROS 2 and drive the existing ROS 1 core.
+  - topic: /cmd_vel
+    ros1_type: geometry_msgs/Twist
+    ros2_type: geometry_msgs/msg/Twist
+    direction: ros1_to_ros2
+    depth: 10
+  - topic: /planning_3d_PRM_node/goal_pose
+    ros1_type: geometry_msgs/PoseStamped
+    ros2_type: geometry_msgs/msg/PoseStamped
+    direction: ros2_to_ros1
+    depth: 10
+
+  # Navigation outputs exposed to ROS 2 consumers.
+  - topic: /planning_3d_PRM_node/planned_path
+    ros1_type: nav_msgs/Path
+    ros2_type: nav_msgs/msg/Path
+    direction: ros1_to_ros2
+    depth: 5
+  - topic: /path_smooth
+    ros1_type: nav_msgs/Path
+    ros2_type: nav_msgs/msg/Path
+    direction: ros1_to_ros2
+    depth: 5
+  - topic: /local_path
+    ros1_type: nav_msgs/Path
+    ros2_type: nav_msgs/msg/Path
+    direction: ros1_to_ros2
+    depth: 5
+  - topic: /navigation_state
+    ros1_type: std_msgs/Int32
+    ros2_type: std_msgs/msg/Int32
+    direction: ros1_to_ros2
+  - topic: /navigation_state_debug
+    ros1_type: std_msgs/String
+    ros2_type: std_msgs/msg/String
+    direction: ros1_to_ros2
+
+  # TF is exported so ROS 2 visualization and platform adapters share frames.
+  - topic: /tf
+    ros1_type: tf2_msgs/TFMessage
+    ros2_type: tf2_msgs/msg/TFMessage
+    direction: ros1_to_ros2
+    depth: 100
+    reliability: best_effort
+  - topic: /tf_static
+    ros1_type: tf2_msgs/TFMessage
+    ros2_type: tf2_msgs/msg/TFMessage
+    direction: ros1_to_ros2
+    depth: 1
+    durability: transient_local
+
+  # Optional high-bandwidth topics. Enable only when required; rosbridge JSON
+  # is intentionally not the default transport for dense point clouds.
+  - topic: /odom
+    ros1_type: nav_msgs/Odometry
+    ros2_type: nav_msgs/msg/Odometry
+    direction: ros2_to_ros1
+    enabled: false
+  - topic: /livox/lidar
+    ros1_type: sensor_msgs/PointCloud2
+    ros2_type: sensor_msgs/msg/PointCloud2
+    direction: ros2_to_ros1
+    reliability: best_effort
+    throttle_ms: 50
+    enabled: false
