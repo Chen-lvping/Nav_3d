@@ -14,7 +14,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake git ninja-build pkg-config python3-pip python3-rosdep \
     libapr1-dev libboost-all-dev libeigen3-dev libopen3d-dev libpcl-dev libpcap-dev \
-    libyaml-cpp-dev libipopt-dev liblapack-dev gfortran \
+    libyaml-cpp-dev coinor-libipopt-dev liblapack-dev gfortran \
     ros-${ROS_DISTRO}-ament-cmake-auto ros-${ROS_DISTRO}-ament-cmake-python \
     ros-${ROS_DISTRO}-pcl-conversions ros-${ROS_DISTRO}-tf2-ros \
     ros-${ROS_DISTRO}-tf2-geometry-msgs ros-${ROS_DISTRO}-rviz2 \
