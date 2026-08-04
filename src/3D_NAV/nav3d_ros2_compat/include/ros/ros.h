@@ -239,18 +239,18 @@ public:
   template<typename MessageT, typename ObjectT>
   Subscriber subscribe(
     const std::string & topic, std::size_t depth,
-    void (ObjectT::* callback)(const typename MessageT::ConstSharedPtr &), ObjectT * object)
+    void (ObjectT::* callback)(const std::shared_ptr<const MessageT> &), ObjectT * object)
   {
     auto subscription = node_->create_subscription<MessageT>(
       topic, rclcpp::QoS(std::max<std::size_t>(1, depth)),
-      [object, callback](typename MessageT::ConstSharedPtr message) {(object->*callback)(message);});
+      [object, callback](std::shared_ptr<const MessageT> message) {(object->*callback)(message);});
     return Subscriber(subscription);
   }
 
   template<typename MessageT>
   Subscriber subscribe(
     const std::string & topic, std::size_t depth,
-    void (* callback)(const typename MessageT::ConstSharedPtr &))
+    void (* callback)(const std::shared_ptr<const MessageT> &))
   {
     auto subscription = node_->create_subscription<MessageT>(
       topic, rclcpp::QoS(std::max<std::size_t>(1, depth)), callback);

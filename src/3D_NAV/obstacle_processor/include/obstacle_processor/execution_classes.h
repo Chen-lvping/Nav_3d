@@ -6,6 +6,7 @@
 #ifndef EXECUTION_CLASSES_H
 #define EXECUTION_CLASSES_H
 
+#include <ros/ros.h>
 #include <vector>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>

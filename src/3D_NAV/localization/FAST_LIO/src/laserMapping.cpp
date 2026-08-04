@@ -353,7 +353,7 @@ void imu_cbk(const sensor_msgs::Imu::ConstSharedPtr &msg_in)
 {
     publish_count ++;
     // cout<<"IMU got at: "<<msg_in->header.stamp.toSec()<<endl;
-    sensor_msgs::Imu::Ptr msg(new sensor_msgs::Imu(*msg_in));
+    auto msg = std::make_shared<sensor_msgs::Imu>(*msg_in);
 
     msg->header.stamp = ros::Time().fromSec(rclcpp::Time(msg_in->header.stamp).seconds() - time_diff_lidar_to_imu);
     if (abs(timediff_lidar_wrt_imu) > 0.1 && time_sync_en)

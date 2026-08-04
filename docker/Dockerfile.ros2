@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-${ROS_DISTRO}-rosbag2 && \
     rm -rf /var/lib/apt/lists/*
 
-RUN git clone --depth 1 --branch v${CASADI_VERSION} https://github.com/casadi/casadi.git /tmp/casadi && \
+RUN git clone --depth 1 --branch ${CASADI_VERSION} https://github.com/casadi/casadi.git /tmp/casadi && \
     cmake -S /tmp/casadi -B /tmp/casadi/build -GNinja \
       -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${CASADI_ROOT} \
       -DWITH_IPOPT=ON -DWITH_PYTHON=OFF -DWITH_EXAMPLES=OFF && \
