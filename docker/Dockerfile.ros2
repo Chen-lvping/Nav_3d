@@ -13,8 +13,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake git ninja-build pkg-config python3-pip python3-rosdep \
-    libapr1-dev libboost-all-dev libeigen3-dev libopen3d-dev libpcl-dev libpcap-dev \
-    libyaml-cpp-dev coinor-libipopt-dev liblapack-dev gfortran \
+    libapr1-dev libboost-all-dev libeigen3-dev libgoogle-glog-dev libnanoflann-dev \
+    libopen3d-dev libpcl-dev libpcap-dev libtbb-dev libyaml-cpp-dev \
+    coinor-libipopt-dev liblapack-dev gfortran \
     ros-${ROS_DISTRO}-ament-cmake-auto ros-${ROS_DISTRO}-ament-cmake-python \
     ros-${ROS_DISTRO}-pcl-conversions ros-${ROS_DISTRO}-tf2-ros \
     ros-${ROS_DISTRO}-tf2-geometry-msgs ros-${ROS_DISTRO}-rviz2 \
@@ -36,11 +37,13 @@ RUN git clone --depth 1 https://github.com/Livox-SDK/Livox-SDK2.git /tmp/livox-s
 WORKDIR ${NAV3D_WS}
 COPY src/3D_NAV src
 RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
-    rosdep update && rosdep install --from-paths src --ignore-src -r -y --rosdistro ${ROS_DISTRO} && \
+    apt-get update && rosdep update && \
+    rosdep install --from-paths src --ignore-src -r -y --rosdistro ${ROS_DISTRO} && \
+    rm -rf /var/lib/apt/lists/* && \
     colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 COPY docker/entrypoint.ros2.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh && mkdir -p /data
-ENV LD_LIBRARY_PATH=/opt/casadi/lib:/usr/local/lib:${LD_LIBRARY_PATH}
+ENV LD_LIBRARY_PATH=/opt/casadi/lib:/usr/local/lib
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["ros2", "launch", "nav_bringup", "full_stack.launch.py"]

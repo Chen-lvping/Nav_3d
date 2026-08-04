@@ -5,7 +5,6 @@
   <description>Native ROS 2 Unitree Go2 base controller.</description>
   <maintainer email="2721705912@qq.com">Chen-lvping</maintainer>
   <license>MIT</license>
-  <buildtool_depend>ament_python</buildtool_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>std_msgs</exec_depend>
