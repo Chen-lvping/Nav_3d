@@ -70,3 +70,5 @@ src/3D_NAV/localization/**/doc/**/*.mp4
 .idea/
 .DS_Store
 Thumbs.db
+# Native ROS 2 validation outputs
+/artifacts*/

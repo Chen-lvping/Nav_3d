@@ -1,85 +1,54 @@
-# Nav_3d
+# Nav_3d — Native ROS 2
 
-Nav_3d is a ROS 1 3D navigation workspace for legged and mobile robots. The
-reusable navigation chain is separated from sensor drivers and robot SDKs so a
-new platform only needs to satisfy a small set of ROS topic and TF contracts.
-
-```text
-map + trajectory -> traversable-area extraction
-localization + traversable PCD -> PRM/A* -> Bezier -> NMPC -> /cmd_vel
-point cloud + static map -> dynamic obstacles --------------------^
-```
-
-## Supported baseline
-
-- ROS Noetic on Ubuntu 20.04, or the provided Docker image
-- `amd64` and `arm64` for the generic algorithm stack
-- PCL 1.10, Eigen 3, and CasADi 3.5.5 with IPOPT
-- Included profiles: generic ROS interface, Livox MID360 + Go2, and M20
-
-"Any platform" means any host and robot that can provide the documented ROS 1
-interfaces. Native ROS Noetic is tied to Ubuntu 20.04; use Docker on newer
-Ubuntu releases or other Linux distributions. Robot SDKs and kernel drivers
-may still impose their own CPU, OS, and network restrictions.
-
-## Quick start
-
-Clone and build the generic stack:
-
-```bash
-git clone https://github.com/Chen-lvping/Nav_3d.git nav_3d_ws
-cd nav_3d_ws
-source scripts/nav3d_env.sh
-scripts/build_workspace.sh core
-```
-
-Place maps outside Git, or under `src/data`, then set the data root:
-
-```bash
-export NAV3D_DATA_ROOT=/absolute/path/to/nav3d_data
-source devel/setup.bash
-roslaunch nav_bringup bringup_navigation.launch \
-  pcd_path:="$NAV3D_DATA_ROOT/traversable/traversable_areas.pcd"
-```
-
-The generic launch does not start a sensor driver, localization node, or robot
-bridge. It expects `map -> base_link` and publishes `/cmd_vel`; enable optional
-static-map and obstacle inputs with launch arguments after their contracts are
-available.
-
-Docker build and run:
-
-```bash
-docker build -f docker/Dockerfile -t nav3d:noetic .
-docker run --rm -it --network host \
-  -v /absolute/path/to/nav3d_data:/data \
-  -e NAV3D_DATA_ROOT=/data nav3d:noetic
-```
-
-## Documentation
-
-- [Architecture and package ownership](docs/ARCHITECTURE.md)
-- [Native and Docker deployment](docs/DEPLOYMENT.md)
-- [Sensor and robot porting guide](docs/PORTING_GUIDE.md)
-- [ROS topic, TF, and file contracts](docs/INTERFACES.md)
-- [Runtime data policy](src/data/README.md)
-- [Existing MID360/M20 runbooks](src/3D_NAV/README.md)
-
-## Repository layout
+本分支将项目重构为原生 ROS 2 Humble 算法栈，默认路径不再依赖 ROS 1、catkin、roscore、
+rosbridge 或 ROS 1 API 兼容层。容器内提供确定性传感器仿真，可完整验证：
 
 ```text
-src/3D_NAV/
-  localization/       sensor-specific localization and map publication
-  map_process/        offline traversable-area extraction
-  global_planner/     PRM/A* planning and Bezier smoothing
-  local_planner/      NMPC local planning and velocity control
-  obstacle_processor/ dynamic obstacle extraction
-  go2_base_controller example /cmd_vel-to-platform bridge
-  nav_bringup/        generic and platform integration launches
-scripts/              environment, build, and portability checks
-docker/               reproducible ROS Noetic build environment
+LaserScan + mapping pose -> log-odds occupancy mapping -> map.pgm/yaml
+LaserScan + wheel odom + map -> correlative scan matching -> map->odom TF
+map + localized pose + goal -> obstacle inflation + A* + smoothing -> Path
+Path + localized pose -> pure pursuit -> cmd_vel -> kinematic simulator
 ```
 
-Runtime bags, point clouds, generated maps, build trees, machine credentials,
-and network-specific values are intentionally excluded from Git. See
-[third-party notes](docs/THIRD_PARTY.md) before redistributing a derived image.
+## 一键 Docker 验收
+
+```bash
+git clone -b ros2-native-rebuild-20260817 https://github.com/Chen-lvping/Nav_3d.git
+cd Nav_3d
+docker compose build
+docker compose run --rm nav3d
+cat artifacts/demo_result.json
+```
+
+成功结果为 `"status": "PASS"`，同时生成 `artifacts/demo_map.pgm`、
+`artifacts/demo_map.yaml` 和 `artifacts/demo.log`。
+
+## 本机 ROS 2 Humble
+
+```bash
+source /opt/ros/humble/setup.bash
+./scripts/build_workspace.sh
+source install/setup.bash
+./scripts/validate_native.sh
+```
+
+## 包结构
+
+- `src/nav3d_native/nav3d_native/algorithms.py`：与 ROS 解耦的建图、定位、A*、平滑、控制算法
+- `mapping_node.py`：原生 `rclpy` 占据栅格建图与标准地图文件输出
+- `localization_node.py`：相关扫描匹配定位与 TF2 发布
+- `planner_node.py`：障碍膨胀 A* 全局规划
+- `controller_node.py`：路径跟踪和 `/cmd_vel`
+- `simulator_node.py`：仅用于无实机闭环验证
+- `demo_supervisor.py`：量化验收与 JSON 证据输出
+
+旧 ROS 1 源码保留在 `src/3D_NAV` 并由 `COLCON_IGNORE` 隔离；旧容器定义保留为
+`docker/Dockerfile.ros1-legacy`。实机驱动不在本阶段启动。
+
+## 文档
+
+- [运行环境与实机边界](docs/ENVIRONMENT.md)
+- [原生 ROS 2 架构](docs/ARCHITECTURE.md)
+- [Docker、本机部署与验收](docs/DEPLOYMENT.md)
+- [ROS 2 话题、TF 与参数接口](docs/INTERFACES.md)
+- [实机和 3D 前端迁移指南](docs/PORTING_GUIDE.md)

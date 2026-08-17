@@ -4,5 +4,7 @@ workspace="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 set +u
 source "/opt/ros/${ROS_DISTRO:-humble}/setup.bash"
 set -u
-cd "${workspace}"
-colcon build --symlink-install --event-handlers console_direct+ --packages-select nav3d_native
+set +u
+source "${workspace}/install/setup.bash"
+set -u
+exec ros2 launch nav3d_native demo.launch.py "$@"

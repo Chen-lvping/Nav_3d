@@ -1,0 +1,42 @@
+name: ROS 2 native validation
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  docker-e2e:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build ROS 2 Humble image
+        run: docker compose build nav3d
+
+      - name: Run unit and end-to-end validation
+        run: docker compose run --rm nav3d
+
+      - name: Assert validation evidence
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          artifact_dir = Path('artifacts')
+          result = json.loads((artifact_dir / 'demo_result.json').read_text())
+          assert result['status'] == 'PASS', result
+          for name in ('demo_map.pgm', 'demo_map.yaml', 'demo.log'):
+              path = artifact_dir / name
+              assert path.is_file() and path.stat().st_size > 0, path
+          print(json.dumps(result, indent=2))
+          PY
+
+      - name: Upload validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nav3d-native-validation
+          path: artifacts/
+          if-no-files-found: warn

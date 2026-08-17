@@ -1,71 +1,80 @@
-# Porting guide
+# 实机与 3D 前端迁移指南
 
-## Add a sensor or localization source
+当前分支先完成无实机的原生 ROS 2 算法闭环。接入新传感器或底盘时，应保留标准接口边界，
+不要把厂商 SDK、ROS 1 消息或 bridge 调用写回 `nav3d_native` 算法层。
 
-The navigation core does not require a particular LiDAR brand. Adapt the new
-sensor below the interface boundary:
+## 接入激光/LIO
 
-1. Publish a time-correct `sensor_msgs/PointCloud2` stream and IMU data needed
-   by the selected localization system.
-2. Configure extrinsics and publish a connected sensor-to-base TF.
-3. Make localization publish a stable `map -> base_link` transform.
-4. During mapping, export a `PointXYZI` PCD and a trajectory accepted by
-   `map_process`.
-5. If online obstacle processing is required, remap `lidar_topic` and set
-   `lidar_frame` in the generic bringup.
+二维扫描有两种接入方式：
 
-Keep driver IP addresses, UDP ports, scan patterns, timestamps, and extrinsics
-in a sensor-specific YAML/launch file. Do not add them to planner code.
+1. 激光直接发布 `sensor_msgs/msg/LaserScan`；
+2. 3D 雷达发布 `PointCloud2`，由独立前端按高度、距离和地面规则投影为 `LaserScan`。
 
-## Add a robot base
+建图需要一个与扫描时间对齐的全局位姿话题：
 
-Create a separate ROS package whose only upper-stack dependency is the standard
-ROS message interface. The minimum adapter is:
-
-```text
-/cmd_vel (geometry_msgs/Twist)
-  -> velocity limits + watchdog + enable/estop gate
-  -> vendor SDK, CAN, serial, DDS, or ros_control
-
-platform state
-  -> /odom and odom -> base_link TF when localization needs them
+```bash
+ros2 run nav3d_native mapper --ros-args   -p pose_topic:=/lio/odom   -r /scan:=/projected_scan   -p map_output:=/data/maps/site_a
 ```
 
-Validate in this order:
+定位阶段则需要局部连续 `/wheel/odom`、`/scan` 和已生成的 `/map`。若采用外部 LIO/SLAM
+直接定位，可替换 `nav3d_localizer`，但必须继续发布 `map -> odom` 或等价的
+`/localization/pose`，使规划控制层无需感知传感器品牌。
 
-1. SDK/transport read-only probe.
-2. Robot state and mode checks.
-3. Zero-velocity command.
-4. Small manually bounded command with the navigation stack stopped.
-5. `/cmd_vel` bridge subscription and watchdog.
-6. Full navigation at reduced limits.
+检查项：
 
-`go2_base_controller` is an example, not a base class. M20 uses an external
-ROS1/ROS2 bridge and motion adapter. New platforms should preserve the same
-boundary instead of adding SDK calls to `nmpc_planner`.
+- 点云/扫描时间戳使用同一时钟；
+- `base_link -> base_scan` 外参正确；
+- 地图、里程计和基座形成一棵 TF 树；
+- 静止时定位不持续漂移；
+- 移动时没有明显跳变或时间反转。
 
-## Tune robot geometry and dynamics
+## 接入机器人底盘
 
-At minimum review:
-
-- planner: `safe_margin`, `robot_height`, `max_slope_deg`, headroom settings
-- obstacle processor: crop bounds, height thresholds, LiDAR height compensation
-- NMPC: max linear/angular velocity, safe distance, influence distance
-- bridge: acceleration limits, command timeout, supported lateral velocity
-
-Start with obstacle processing disabled in a cleared test area, then enable and
-verify `/obs_raw` independently. A healthy `/cmd_vel` topic does not prove the
-robot transport or SDK is healthy.
-
-## Acceptance checklist
+创建独立 ROS 2 包实现：
 
 ```text
-[ ] target CPU can build or run the Docker image
-[ ] map, base, and sensor frames form one TF tree
-[ ] planner loads the intended traversable PCD
-[ ] a goal produces planned_path and path_smooth
-[ ] NMPC publishes bounded /cmd_vel
-[ ] platform bridge watchdog stops stale commands
-[ ] emergency stop is available during every motion test
-[ ] sensor/network values live in a profile, not source code
+/cmd_vel
+  -> 限速 + watchdog + enable/estop
+  -> 厂商 SDK / CAN / 串口 / ros2_control
+
+底盘状态
+  -> /wheel/odom
+  -> odom -> base_link
+```
+
+建议验证顺序：
+
+1. 只读检查 SDK、网络、关节/底盘状态；
+2. 在导航栈关闭时发送零速度；
+3. 发送受限的短时小速度并验证急停；
+4. 验证 watchdog 在命令中断后停车；
+5. 接入 `/cmd_vel`，先悬空或支架测试；
+6. 在空旷区域以低速运行完整导航。
+
+## 从二维回归扩展到 3D 地形导航
+
+保留当前 Docker 回归作为基础门禁，再以独立包增加：
+
+- `PointCloud2` 去畸变、地面分割和高度/坡度估计；
+- 2.5D elevation/cost map 或体素地图；
+- 机器人足迹、净空、坡度和台阶约束；
+- 3D/SE(2.5) 全局搜索与局部避障；
+- rosbag2 数据集和固定指标回放。
+
+不要删除现有二维确定性测试。新增 3D 算法应同时提供无硬件数据集测试，并保持最终输出仍为标准
+`nav_msgs/Path` 与 `/cmd_vel`，或通过明确的新接口版本升级。
+
+## 迁移完成标准
+
+```text
+[ ] Docker 中 colcon 构建成功
+[ ] 算法单元测试全部通过
+[ ] 数据集或仿真可重复生成有效地图
+[ ] 定位误差和丢失恢复达到项目阈值
+[ ] 目标可生成无碰路径
+[ ] 控制输出有界且能到达目标
+[ ] TF 树单一、连通、无重复发布
+[ ] 底盘桥具备限幅、watchdog 和急停
+[ ] 网络、设备和外参只存在于平台配置中
+[ ] ROS 1 组件不进入默认原生 ROS 2 运行链
 ```

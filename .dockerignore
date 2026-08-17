@@ -14,3 +14,5 @@ src/data
 *.mp4
 __pycache__
 *.pyc
+# Native ROS 2 validation outputs
+/artifacts*/
