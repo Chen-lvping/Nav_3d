@@ -2,11 +2,15 @@
 .agents
 graphify-out
 build
+build_*
 devel
 install
+install_*
 log
+log_*
 logs
 docx
+.local
 src/data
 *.bag
 *.pcd
