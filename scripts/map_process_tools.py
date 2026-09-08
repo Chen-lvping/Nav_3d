@@ -13,6 +13,10 @@ This file intentionally does not modify the existing ROS nodes.  It provides:
    above them.  This compensates for cases where the ground extractor outputs a
    floor patch under/near low obstacles.
 
+3. add-start-plane
+   Append a manually approved horizontal patch around a known navigation start
+   pose while preserving the original traversable PCD.
+
 Supported PCD DATA encodings: binary and ascii.  The current project data is
 binary PCD, which is the primary path.
 """
@@ -27,8 +31,6 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
-from scipy.spatial import cKDTree
-from scipy.spatial.transform import Rotation
 
 
 PCD_TYPE_MAP = {
@@ -164,6 +166,8 @@ def transform_xyz_in_place(cloud: np.ndarray, rotation: np.ndarray, pivot: np.nd
 
 
 def rotation_from_vectors(src: np.ndarray, dst: np.ndarray) -> np.ndarray:
+    from scipy.spatial.transform import Rotation
+
     src = src / np.linalg.norm(src)
     dst = dst / np.linalg.norm(dst)
     cross = np.cross(src, dst)
@@ -261,6 +265,8 @@ def fit_plane_ransac(
 
 
 def transform_trajectory_format1(parts: List[str], rotation: np.ndarray, pivot: np.ndarray) -> List[str]:
+    from scipy.spatial.transform import Rotation
+
     pos = np.array([float(parts[1]), float(parts[2]), float(parts[3])])
     new_pos = rotation @ (pos - pivot) + pivot
     quat = np.array([float(parts[4]), float(parts[5]), float(parts[6]), float(parts[7])])
@@ -370,6 +376,8 @@ def command_level(args: argparse.Namespace) -> None:
 
 
 def command_obstacle_filter(args: argparse.Namespace) -> None:
+    from scipy.spatial import cKDTree
+
     ref_header, ref_meta, ref_cloud = load_pcd(args.reference_pcd)
     trav_header, trav_meta, trav_cloud = load_pcd(args.input_traversable_pcd)
     del ref_header, ref_meta
@@ -408,6 +416,47 @@ def command_obstacle_filter(args: argparse.Namespace) -> None:
     )
 
 
+def command_add_start_plane(args: argparse.Namespace) -> None:
+    header, meta, cloud = load_pcd(args.input_pcd)
+    if args.spacing <= 0.0 or args.size_x <= 0.0 or args.size_y <= 0.0:
+        raise ValueError("spacing and plane sizes must be positive")
+
+    x_values = np.arange(
+        args.center_x - args.size_x / 2.0,
+        args.center_x + args.size_x / 2.0 + args.spacing * 0.5,
+        args.spacing,
+    )
+    y_values = np.arange(
+        args.center_y - args.size_y / 2.0,
+        args.center_y + args.size_y / 2.0 + args.spacing * 0.5,
+        args.spacing,
+    )
+    grid_x, grid_y = np.meshgrid(x_values, y_values, indexing="xy")
+    patch = np.zeros(grid_x.size, dtype=cloud.dtype)
+    patch["x"] = grid_x.ravel().astype(patch.dtype["x"], copy=False)
+    patch["y"] = grid_y.ravel().astype(patch.dtype["y"], copy=False)
+    patch["z"] = np.asarray(args.z, dtype=patch.dtype["z"])
+    if "scalar_intensity" in (patch.dtype.names or ()):
+        patch["scalar_intensity"] = np.asarray(
+            args.intensity, dtype=patch.dtype["scalar_intensity"])
+    elif "intensity" in (patch.dtype.names or ()):
+        patch["intensity"] = np.asarray(args.intensity, dtype=patch.dtype["intensity"])
+
+    augmented = np.concatenate((cloud, patch))
+    write_pcd(args.output_pcd, header, meta, augmented)
+    print(f"Input PCD:        {args.input_pcd}")
+    print(f"Output PCD:       {args.output_pcd}")
+    print(f"Original points:  {len(cloud)}")
+    print(f"Added points:     {len(patch)}")
+    print(f"Output points:    {len(augmented)}")
+    print(
+        "Start plane:      "
+        f"x=[{x_values[0]:.3f}, {x_values[-1]:.3f}], "
+        f"y=[{y_values[0]:.3f}, {y_values[-1]:.3f}], "
+        f"z={args.z:.3f}, spacing={args.spacing:.3f}"
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -437,6 +486,19 @@ def build_parser() -> argparse.ArgumentParser:
     obstacle.add_argument("--max-obstacle-height", type=float, default=1.40)
     obstacle.add_argument("--chunk-size", type=int, default=1500)
     obstacle.set_defaults(func=command_obstacle_filter)
+
+    start_plane = subparsers.add_parser(
+        "add-start-plane", help="Append an approved horizontal start patch")
+    start_plane.add_argument("--input-pcd", type=Path, required=True)
+    start_plane.add_argument("--output-pcd", type=Path, required=True)
+    start_plane.add_argument("--center-x", type=float, default=0.2)
+    start_plane.add_argument("--center-y", type=float, default=0.3)
+    start_plane.add_argument("--z", type=float, default=-0.25)
+    start_plane.add_argument("--size-x", type=float, default=2.4)
+    start_plane.add_argument("--size-y", type=float, default=2.2)
+    start_plane.add_argument("--spacing", type=float, default=0.05)
+    start_plane.add_argument("--intensity", type=float, default=1.0)
+    start_plane.set_defaults(func=command_add_start_plane)
 
     return parser
 

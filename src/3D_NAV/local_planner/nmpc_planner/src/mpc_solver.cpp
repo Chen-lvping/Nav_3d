@@ -212,8 +212,12 @@ MPCSolver::MPCResult MPCSolver::solve(const State& current_state,
         casadi::Dict opts;
         opts["print_time"] = false;
         opts["error_on_fail"] = false;
+        opts["print_header"] = false;
+        opts["print_iteration"] = false;
         casadi::Dict qpsol_opts;
         qpsol_opts["error_on_fail"] = false;
+        qpsol_opts["print_header"] = false;
+        qpsol_opts["print_iter"] = false;
         opts["qpsol_options"] = qpsol_opts;
         
         opti_->solver("qrsqp", opts);

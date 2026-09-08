@@ -1,8 +1,11 @@
 # Catkin workspace build products
 /build/
+/build_*/
 /devel/
 /install/
+/install_*/
 /log/
+/log_*/
 /logs/
 log/
 logs/
